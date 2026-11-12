@@ -2,11 +2,13 @@ from __future__ import annotations
 
 import logging
 from importlib.metadata import EntryPoint
+from pathlib import Path
 
 import pytest
 
 from coldrun.runners import registry
 from coldrun.runners.registry import GROUP, Registry, RunnerNotFoundError, discover
+from tests.unit.runners.fake_runner import FakeRunner
 
 MOD = "tests.unit.runners.fake_runner"
 
@@ -18,11 +20,14 @@ def ep(name: str, attr: str) -> EntryPoint:
 def test_loads_class_and_factory_entry_points() -> None:
     found = discover([ep("fake", "FakeRunner")])
     assert list(found) == ["fake"]
+    # Regression: a class satisfies isinstance(cls, Runner); it must still be instantiated.
+    assert isinstance(found["fake"].runner, FakeRunner)
+    assert found["fake"].runner.detect(Path("x.fake")) == 1.0
     assert found["fake"].entry_point == f"{MOD}:FakeRunner"
     assert found["fake"].distribution is None
 
     found = discover([ep("fake", "factory")])
-    assert found["fake"].runner.name == "fake"
+    assert isinstance(found["fake"].runner, FakeRunner)
 
 
 def test_broken_plugin_is_skipped_and_logged(caplog: pytest.LogCaptureFixture) -> None:
@@ -92,6 +97,5 @@ def test_default_registry_reads_installed_group(monkeypatch: pytest.MonkeyPatch)
     assert reg.names() == ["fake"]
 
 
-def test_installed_group_is_empty_until_runners_land() -> None:
-    # No built-in runners are registered yet; M1 adds the first one in #15.
-    assert Registry().names() == []
+def test_installed_group_has_builtin_runners() -> None:
+    assert "sh" in Registry().names()
