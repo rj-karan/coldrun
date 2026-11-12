@@ -1,5 +1,7 @@
 """muzzle: fetch, vet and sandbox any downloaded script in one command."""
 
+from __future__ import annotations
+
 from importlib.metadata import PackageNotFoundError, version
 
 try:

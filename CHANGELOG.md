@@ -10,5 +10,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Package scaffold with the spec layout and `muzzle --version` (#1, #2).
+- Ruff lint and format, mypy strict and pre-commit hooks including a secrets scan and a Conventional Commits check (#3).
 
 [Unreleased]: https://github.com/rj-karan/muzzle/compare/main...HEAD

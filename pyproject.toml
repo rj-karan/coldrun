@@ -75,3 +75,75 @@ branch = true
 fail_under = 85
 show_missing = true
 exclude_also = ["if TYPE_CHECKING:", "\\.\\.\\.$"]
+
+[tool.ruff]
+target-version = "py310"
+line-length = 100
+src = ["src", "tests"]
+extend-exclude = ["docs"]
+
+[tool.ruff.lint]
+select = [
+  "E", "W",    # pycodestyle
+  "F",         # pyflakes
+  "I",         # isort
+  "UP",        # pyupgrade
+  "B",         # bugbear
+  "S",         # bandit: flags shell=True, eval, tempfile misuse
+  "N",         # naming
+  "D",         # docstrings on public objects
+  "ANN",       # type annotations everywhere
+  "C4",        # comprehensions
+  "SIM",       # simplify
+  "PTH",       # pathlib over os.path
+  "RUF",       # ruff-specific
+  "T20",       # no stray print
+  "ISC",       # implicit string concatenation
+  "PIE",
+  "RET",
+  "ARG",       # unused arguments
+  "TC",        # type-checking imports
+  "PGH",       # blanket noqa / type: ignore
+  "PERF",
+  "FURB",
+  "LOG", "G",  # logging
+  "ERA",       # commented-out code
+  "PL",        # pylint subset
+]
+ignore = [
+  "D105",    # magic methods need no docstring
+  "D107",    # __init__ documented on the class
+  "D203",    # conflicts with D211
+  "D213",    # conflicts with D212
+  "PLR0913", # argument counts are reviewed, not counted
+  "ISC001",  # conflicts with the formatter
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = [
+  "S101",   # assert is the test idiom
+  "D",      # test names are the documentation
+  "ANN",    # fixtures and test functions stay light
+  "PLR2004",# magic values in assertions are fine
+  "ARG",    # fixtures are injected by name
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.isort]
+known-first-party = ["muzzle"]
+required-imports = ["from __future__ import annotations"]
+
+[tool.ruff.format]
+docstring-code-format = true
+
+[tool.mypy]
+python_version = "3.10"
+files = ["src", "tests"]
+strict = true
+warn_unreachable = true
+warn_unused_ignores = true
+enable_error_code = ["ignore-without-code", "redundant-expr", "truthy-bool"]
+pretty = true
+show_error_codes = true
