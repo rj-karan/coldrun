@@ -20,7 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Breaking:** the project is renamed from `muzzle` to `coldrun`: package, console script, entry-point group `coldrun.runners`, config path `~/.config/coldrun/` and cache path `~/.cache/coldrun/` (#50). The PyPI name `muzzle` belongs to another maintainer; `coldrun` is free everywhere.
 
-## [0.0.1] - 2026-11-12
+## [0.1.0] - 2026-11-12
 
 Foundation release (published under the former name `muzzle`): an empty `muzzle --version` that passes every check on a pull request. No fetching, vetting or sandboxing yet; that starts in M1.
 
