@@ -1,0 +1,32 @@
+name: Feature request
+description: Propose a capability or a change in behaviour
+labels: ["type:feature"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What you are trying to do and what gets in the way today
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposal
+      description: What muzzle should do, with an example command and output if you can
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives
+      description: Other ways to solve it, including doing nothing, and why they are worse
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options: [core, sandbox, vet, a runner, packaging, docs]
+    validations:
+      required: true

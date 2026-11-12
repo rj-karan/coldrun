@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security vulnerability or sandbox escape
+    url: https://github.com/rj-karan/muzzle/security/advisories/new
+    about: Report privately through a GitHub security advisory. Do not open a public issue.
+  - name: Question or usage help
+    url: https://github.com/rj-karan/muzzle/discussions
+    about: Ask in Discussions; issues are for bugs, features, runners and rule problems.
