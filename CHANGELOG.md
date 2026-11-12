@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.1] - 2026-11-12
+
+Foundation release: an empty `muzzle --version` that passes every check on a pull request. No fetching, vetting or sandboxing yet; that starts in M1.
+
 ### Added
 
 - Package scaffold with the spec layout and `muzzle --version` (#1, #2).
@@ -15,4 +19,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Bubblewrap smoke test in `tests/integration` proving user namespaces work on the runner (#5).
 - Issue templates (bug, feature, new runner, false positive), pull request template, CODEOWNERS, CONTRIBUTING, SECURITY and CODE_OF_CONDUCT (#4).
 
-[Unreleased]: https://github.com/rj-karan/muzzle/compare/main...HEAD
+[Unreleased]: https://github.com/rj-karan/muzzle/compare/v0.0.1...HEAD
+[0.0.1]: https://github.com/rj-karan/muzzle/releases/tag/v0.0.1
