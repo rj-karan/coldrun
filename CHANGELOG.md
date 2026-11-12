@@ -7,14 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Fixed
+## [0.1.1] - 2026-11-12
 
-- Semgrep findings in the sandbox probe and doctor: the probe raises `SandboxError` instead of asserting, and the two `subprocess` imports carry a justified suppression; `semgrep (own code)` and `pip-audit` are now required checks (#62).
+Completes milestone M1: a local hello-world script runs sandboxed with no network and no home access. This is what 0.1.0 was meant to ship; that tag was cut before the pipeline landed.
 
 ### Added
 
 - `coldrun run SOURCE [flags] [-- args]`: the eight-step pipeline wired end to end with `--net`, `--rw`, `--out`, `--backend`, `--lang`, `--yes` and `--force`; a minimal `sh` runner so shell scripts run inside bubblewrap; files the script writes in `/work` are copied to `--out`; a basic decision gate (high refuses unless `--force`, medium asks unless `--yes`); `python -m coldrun` (#15).
 - The release workflow publishes to PyPI only when the repository variable `PYPI_TRUSTED_PUBLISHER` is `true`, so releases stay green until trusted publishing is configured on pypi.org (#60).
+
+### Fixed
+
+- Semgrep findings in the sandbox probe and doctor: the probe raises `SandboxError` instead of asserting, and the two `subprocess` imports carry a justified suppression; `semgrep (own code)` and `pip-audit` are now required checks (#62).
+
+## [0.1.0] - 2026-11-12
+
+Core pipeline building blocks. Released early, before `coldrun run` existed, so this version can fetch, detect, sandbox and report but has no `run` command; use 0.1.1.
+
+### Added
+
 - `coldrun doctor`: checks Python, bubblewrap, unprivileged user namespaces, TIOCSTI, podman, uv and the cache directory, prints pass/warn/fail with the exact fix, exits 1 on failures (#14).
 - Report layer: `Report` model filled in as the pipeline advances, a Rich summary of source, runner, dependencies, findings by severity, sandbox and network policy, what was blocked, files written and the exit code; errors always print what failed and `next:` what to try; `ExitCode` 100/101/102 (#13).
 - Bubblewrap sandbox backend and the policy model behind every backend: new user, PID, mount, IPC, UTS and network namespaces, no capabilities, `no_new_privs`, read-only `/usr`, private tmpfs `/tmp` and `/run`, scratch directory at `/work`, script mounted read-only, synthetic `/etc/passwd`, resolver and CA files only when network is allowed, environment cleared to an allowlist, `--rw` refused for `/`, `$HOME` and credential directories, TIOCSTI-aware TTY passthrough, and a probe that reports bubblewrap's own error with a `coldrun doctor` hint (#12).
@@ -26,7 +37,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Breaking:** the project is renamed from `muzzle` to `coldrun`: package, console script, entry-point group `coldrun.runners`, config path `~/.config/coldrun/` and cache path `~/.cache/coldrun/` (#50). The PyPI name `muzzle` belongs to another maintainer; `coldrun` is free everywhere.
 
-## [0.1.0] - 2026-11-12
+## [0.0.1] - 2026-11-12
 
 Foundation release (published under the former name `muzzle`): an empty `muzzle --version` that passes every check on a pull request. No fetching, vetting or sandboxing yet; that starts in M1.
 
@@ -39,5 +50,7 @@ Foundation release (published under the former name `muzzle`): an empty `muzzle 
 - Issue templates (bug, feature, new runner, false positive), pull request template, CODEOWNERS, CONTRIBUTING, SECURITY and CODE_OF_CONDUCT (#4).
 - CLAUDE.md with the repo workflow, branch protection, code quality bar and the hard security rules for agents and contributors (#8).
 
-[Unreleased]: https://github.com/rj-karan/coldrun/compare/v0.0.1...HEAD
+[Unreleased]: https://github.com/rj-karan/coldrun/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/rj-karan/coldrun/compare/v0.1.0...v0.1.1
+[0.1.0]: https://github.com/rj-karan/coldrun/compare/v0.0.1...v0.1.0
 [0.0.1]: https://github.com/rj-karan/coldrun/releases/tag/v0.0.1
