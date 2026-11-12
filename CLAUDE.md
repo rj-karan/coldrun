@@ -7,7 +7,7 @@ behaviour. When this file and the spec disagree, open an issue labelled
 
 ## What this project is
 
-muzzle is a CLI that fetches a script, works out its dependencies, vets it,
+coldrun is a CLI that fetches a script, works out its dependencies, vets it,
 and runs it inside a sandbox. **The sandbox is the protection; the scan is the
 warning.** Every change must keep the design safe even when the scan says
 clean.
@@ -93,8 +93,8 @@ intent, not an obstacle.
 - `pathlib` over `os.path`. No stray `print`; output goes through the report
   layer.
 - `cli.py` holds no logic. Commands call `pipeline.py`.
-- One module per runner under `src/muzzle/runners/`; runners are discovered
-  through the `muzzle.runners` entry-point group and must pass the shared
+- One module per runner under `src/coldrun/runners/`; runners are discovered
+  through the `coldrun.runners` entry-point group and must pass the shared
   contract suite.
 - Keep a Changelog format and Semantic Versioning. MIT licence.
 

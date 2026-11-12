@@ -1,8 +1,8 @@
 # Every change needs a review from the maintainer. Sandbox and vetting code
 # are listed separately so ownership stays explicit when more people join.
 *                       @rj-karan
-/src/muzzle/sandbox/    @rj-karan
-/src/muzzle/vet/        @rj-karan
+/src/coldrun/sandbox/    @rj-karan
+/src/coldrun/vet/        @rj-karan
 /rules/                 @rj-karan
 /.github/               @rj-karan
 /SECURITY.md            @rj-karan

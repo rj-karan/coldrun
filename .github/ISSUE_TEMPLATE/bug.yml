@@ -5,9 +5,9 @@ body:
   - type: input
     id: version
     attributes:
-      label: muzzle version
-      description: Output of `muzzle --version`
-      placeholder: muzzle 0.1.0
+      label: coldrun version
+      description: Output of `coldrun --version`
+      placeholder: coldrun 0.1.0
     validations:
       required: true
   - type: input
@@ -21,7 +21,7 @@ body:
     id: command
     attributes:
       label: Command run
-      description: The exact muzzle command, with the source if it is public
+      description: The exact coldrun command, with the source if it is public
       render: shell
     validations:
       required: true
@@ -42,7 +42,7 @@ body:
   - type: textarea
     id: doctor
     attributes:
-      label: Output of `muzzle doctor`
+      label: Output of `coldrun doctor`
       render: text
     validations:
       required: true

@@ -7,9 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Breaking:** the project is renamed from `muzzle` to `coldrun`: package, console script, entry-point group `coldrun.runners`, config path `~/.config/coldrun/` and cache path `~/.cache/coldrun/` (#50). The PyPI name `muzzle` belongs to another maintainer; `coldrun` is free everywhere.
+
 ## [0.0.1] - 2026-11-12
 
-Foundation release: an empty `muzzle --version` that passes every check on a pull request. No fetching, vetting or sandboxing yet; that starts in M1.
+Foundation release (published under the former name `muzzle`): an empty `muzzle --version` that passes every check on a pull request. No fetching, vetting or sandboxing yet; that starts in M1.
 
 ### Added
 
@@ -20,5 +24,5 @@ Foundation release: an empty `muzzle --version` that passes every check on a pul
 - Issue templates (bug, feature, new runner, false positive), pull request template, CODEOWNERS, CONTRIBUTING, SECURITY and CODE_OF_CONDUCT (#4).
 - CLAUDE.md with the repo workflow, branch protection, code quality bar and the hard security rules for agents and contributors (#8).
 
-[Unreleased]: https://github.com/rj-karan/muzzle/compare/v0.0.1...HEAD
-[0.0.1]: https://github.com/rj-karan/muzzle/releases/tag/v0.0.1
+[Unreleased]: https://github.com/rj-karan/coldrun/compare/v0.0.1...HEAD
+[0.0.1]: https://github.com/rj-karan/coldrun/releases/tag/v0.0.1

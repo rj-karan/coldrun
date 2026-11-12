@@ -27,7 +27,7 @@ body:
     id: samples
     attributes:
       label: Sample scripts
-      description: Links to two or three public scripts in this language that muzzle should be able to run
+      description: Links to two or three public scripts in this language that coldrun should be able to run
     validations:
       required: true
   - type: dropdown

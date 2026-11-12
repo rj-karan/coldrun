@@ -13,7 +13,7 @@ body:
     id: rule
     attributes:
       label: Rule ID
-      description: As printed in the finding, for example `MZ-PY-EXEC-B64`. Leave blank for a missed detection.
+      description: As printed in the finding, for example `CR-PY-EXEC-B64`. Leave blank for a missed detection.
   - type: textarea
     id: sample
     attributes:
@@ -32,5 +32,5 @@ body:
   - type: textarea
     id: output
     attributes:
-      label: Output of `muzzle scan` on the sample
+      label: Output of `coldrun scan` on the sample
       render: text

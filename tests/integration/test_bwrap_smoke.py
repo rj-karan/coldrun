@@ -70,7 +70,7 @@ def test_home_is_absent_and_env_is_scrubbed() -> None:
 
 
 def test_root_is_read_only_and_tmp_is_private() -> None:
-    result = _run_in_bwrap("! touch /usr/muzzle-probe 2>/dev/null && touch /tmp/ok")
+    result = _run_in_bwrap("! touch /usr/coldrun-probe 2>/dev/null && touch /tmp/ok")
     assert result.returncode == 0, result.stderr
 
 

@@ -1,4 +1,4 @@
-"""Typer application for the ``muzzle`` command.
+"""Typer application for the ``coldrun`` command.
 
 This module wires command-line options to the pipeline and holds no logic of
 its own. Commands are added here as the milestones land.
@@ -8,10 +8,10 @@ from __future__ import annotations
 
 import typer
 
-from muzzle import __version__
+from coldrun import __version__
 
 app = typer.Typer(
-    name="muzzle",
+    name="coldrun",
     help="Fetch, vet and sandbox any downloaded script in one command.",
     no_args_is_help=True,
     add_completion=False,
@@ -21,7 +21,7 @@ app = typer.Typer(
 
 def _version_callback(value: bool) -> None:
     if value:
-        typer.echo(f"muzzle {__version__}")
+        typer.echo(f"coldrun {__version__}")
         raise typer.Exit()
 
 

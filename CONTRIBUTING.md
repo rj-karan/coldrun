@@ -1,4 +1,4 @@
-# Contributing to muzzle
+# Contributing to coldrun
 
 Thank you for helping. This page covers the development setup, how changes
 land, and how to add a runner. The full design is in [docs/SPEC.md](docs/SPEC.md).
@@ -9,11 +9,11 @@ You need Python 3.10 or newer, [uv](https://docs.astral.sh/uv/), and for the
 sandbox tests `bubblewrap` (and `podman` from M5).
 
 ```sh
-git clone https://github.com/rj-karan/muzzle.git
-cd muzzle
+git clone https://github.com/rj-karan/coldrun.git
+cd coldrun
 uv sync                                   # creates .venv with dev tools
 uv run pre-commit install --install-hooks # ruff, mypy, gitleaks, commit message check
-uv run muzzle --version
+uv run coldrun --version
 ```
 
 ## Running the checks
@@ -65,7 +65,7 @@ These come from the security model and are not negotiable:
 
 ## Adding a runner
 
-A runner is one module in `src/muzzle/runners/` that implements the `Runner`
+A runner is one module in `src/coldrun/runners/` that implements the `Runner`
 protocol from `runners/base.py`:
 
 | Method | Purpose |
@@ -81,7 +81,7 @@ Then:
 1. Open a **New runner** issue first.
 2. Add fixtures under `tests/fixtures/<lang>/`: a hello world, one with
    dependencies, and one per vetting rule the runner adds.
-3. Register it in `pyproject.toml` under `[project.entry-points."muzzle.runners"]`.
+3. Register it in `pyproject.toml` under `[project.entry-points."coldrun.runners"]`.
 4. Make it pass the shared contract suite in `tests/unit/runners/`.
 5. Add an `area:runner-<lang>` label if it does not exist and a page under
    `docs/runners/`.
