@@ -17,5 +17,5 @@ coverage.xml
 htmlcov/
 site/
 
-# runsafe
-runsafe-out/
+# muzzle
+muzzle-out/
