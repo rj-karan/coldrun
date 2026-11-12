@@ -43,6 +43,7 @@ coldrun = "coldrun.cli:app"
 
 # Third-party runners register here; see docs/writing-a-runner.md (M5).
 [project.entry-points."coldrun.runners"]
+sh = "coldrun.runners.shell:ShellRunner"
 
 [dependency-groups]
 dev = [
@@ -120,6 +121,14 @@ ignore = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
+"src/coldrun/cli.py" = [
+  "B008",    # typer.Option() in defaults is the Typer idiom
+  "PLR0913", # one parameter per documented flag
+  "PLR0917",
+]
+"src/coldrun/runners/*.py" = [
+  "ARG002",  # protocol methods keep their signature even when an argument is unused
+]
 "tests/**" = [
   "S101",   # assert is the test idiom
   "D",      # test names are the documentation

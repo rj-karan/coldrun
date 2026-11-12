@@ -32,7 +32,12 @@ class RunnerNotFoundError(LookupError):
 
 def _instantiate(ep: EntryPoint) -> Runner:
     obj = ep.load()
-    runner = obj() if callable(obj) and not isinstance(obj, Runner) else obj
+    # A class also "has" every protocol attribute, so check for classes first;
+    # otherwise an uninstantiated runner would slip through.
+    if isinstance(obj, type) or (callable(obj) and not isinstance(obj, Runner)):
+        runner = obj()
+    else:
+        runner = obj
     if not isinstance(runner, Runner):
         msg = f"{ep.value} does not satisfy the Runner protocol"
         raise TypeError(msg)
