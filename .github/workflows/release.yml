@@ -39,10 +39,11 @@ jobs:
   pypi:
     name: publish to PyPI
     needs: build
-    # PyPI publishing starts at v0.1.0 (spec: Packaging and release). The
-    # trusted publisher must be configured on PyPI first; see issue #41 for
-    # the distribution name decision.
-    if: ${{ !startsWith(github.ref_name, 'v0.0.') }}
+    # PyPI publishing starts at v0.1.0 (spec: Packaging and release). It needs
+    # a trusted publisher on pypi.org (project coldrun, owner rj-karan, repo
+    # coldrun, workflow release.yml, environment pypi). Once that exists the
+    # maintainer runs `gh variable set PYPI_TRUSTED_PUBLISHER --body true`.
+    if: ${{ !startsWith(github.ref_name, 'v0.0.') && vars.PYPI_TRUSTED_PUBLISHER == 'true' }}
     runs-on: ubuntu-latest
     environment:
       name: pypi
