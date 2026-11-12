@@ -1,22 +1,24 @@
-# runsafe — Claude Code build spec
+# muzzle — Claude Code build spec
 
 Nov 12, 2026 · @kk
 
 > **Naming note.** This document was written under the working name `saferun`.
 > That name is taken on PyPI (an unrelated Python sandbox, last released March
-> 2025), so the project was renamed to **runsafe** before the first commit.
-> `runsafe` was verified free on PyPI and the AUR on 2026-11-12. The text below
+> 2025), so the project was renamed to **muzzle** during M0. On 2026-11-12
+> `muzzle` was free on the AUR, in Arch and Debian, and on GitHub; the PyPI name
+> is an abandoned 2021 placeholder that will be requested under PEP 541 before
+> v0.1.0, with `muzzle-cli` as the fallback distribution name. The text below
 > uses the new name throughout.
 
 ## What we're building
 
-runsafe is a CLI that takes any script you downloaded, works out what it
+muzzle is a CLI that takes any script you downloaded, works out what it
 needs, checks it for malicious behaviour, and runs it in a sandbox. One command
 replaces the usual loop of reading the script, making a venv, installing
 modules and hoping it is safe.
 
 ```
-runsafe run https://github.com/someone/tool/blob/main/script.py -- --target 10.10.11.5
+muzzle run https://github.com/someone/tool/blob/main/script.py -- --target 10.10.11.5
 ```
 
 ### In scope
@@ -93,7 +95,7 @@ class Runner(Protocol):
   output with Rich.
 - Sandbox backends behind one interface: bubblewrap by default (light, no
   daemon), Podman for runners that need a full image.
-- Config in `~/.config/runsafe/config.toml`, cache in `~/.cache/runsafe/`.
+- Config in `~/.config/muzzle/config.toml`, cache in `~/.cache/muzzle/`.
 
 ## CLI
 
@@ -101,11 +103,11 @@ Five commands cover the whole workflow. Everything after `--` is passed to the
 script untouched.
 
 ```
-runsafe run   <source> [flags] [-- script args]   # fetch, vet, sandbox, run
-runsafe scan  <source>                            # vet only, never executes
-runsafe deps  <source>                            # print resolved dependencies
-runsafe doctor                                    # check bwrap, podman, uv, kernel support
-runsafe cache list | clean                        # manage cached environments
+muzzle run   <source> [flags] [-- script args]   # fetch, vet, sandbox, run
+muzzle scan  <source>                            # vet only, never executes
+muzzle deps  <source>                            # print resolved dependencies
+muzzle doctor                                    # check bwrap, podman, uv, kernel support
+muzzle cache list | clean                        # manage cached environments
 ```
 
 | Flag | Default | Meaning |
@@ -114,7 +116,7 @@ runsafe cache list | clean                        # manage cached environments
 | `--allow-host HOST[:PORT]` | none | Permit one destination; repeatable; implies `--net allow` |
 | `--listen PORT` | none | Forward an inbound port into the sandbox (for callbacks and reverse shells) |
 | `--rw PATH` | none | Mount one host path read-write; everything else is hidden or read-only |
-| `--out DIR` | `./runsafe-out` | Where files the script writes are copied on exit |
+| `--out DIR` | `./muzzle-out` | Where files the script writes are copied on exit |
 | `--backend bwrap\|podman` | auto | Force a sandbox backend |
 | `--lang NAME` | auto | Override type detection |
 | `--yes` | off | Skip the confirmation on medium risk |
@@ -192,8 +194,8 @@ Claude Code follows this for every change, including its own.
 ### Layout
 
 ```
-runsafe/
-  src/runsafe/
+muzzle/
+  src/muzzle/
     cli.py              # Typer app, no logic
     pipeline.py         # the eight steps
     fetch/              # url, github, gist, exploitdb
@@ -243,7 +245,7 @@ runsafe/
 
 | File | Contents |
 |---|---|
-| Issue: bug | Version, distro, command run, expected, actual, `runsafe doctor` output |
+| Issue: bug | Version, distro, command run, expected, actual, `muzzle doctor` output |
 | Issue: feature | Problem, proposal, alternatives |
 | Issue: new runner | Language, how dependencies are declared, sample scripts |
 | Issue: false positive / missed detection | Rule ID, sample, why it is wrong |
@@ -277,7 +279,7 @@ be covered.
 | Unit | Detection, dependency inference, scoring, config, archive checks | `tests/unit`, no sandbox needed |
 | Runner contract | Every runner passes the same suite against its fixtures | `tests/unit/runners`, parametrised |
 | Sandbox escape | A script trying to read `~/.ssh`, write outside the sandbox, or reach a blocked host fails | `tests/integration`, marked `sandbox` |
-| End to end | `runsafe run` on a fixture per language installs dependencies and returns the right output | `tests/integration`, marked `e2e` |
+| End to end | `muzzle run` on a fixture per language installs dependencies and returns the right output | `tests/integration`, marked `e2e` |
 | Rules | Each Semgrep and YARA rule has one sample that must match and one that must not | `tests/unit/vet` |
 
 A bug fix always adds a test that fails before the fix.
@@ -316,12 +318,12 @@ request at a time.
 
 | Milestone | Issues to open | Done when |
 |---|---|---|
-| M0 Foundation (v0.0.1) | Repo scaffold; pyproject and uv; ruff, mypy, pre-commit; all templates and community files; CI, CodeQL, Dependabot; branch protection; labels; CLAUDE.md | An empty `runsafe --version` passes every check on a pull request |
+| M0 Foundation (v0.0.1) | Repo scaffold; pyproject and uv; ruff, mypy, pre-commit; all templates and community files; CI, CodeQL, Dependabot; branch protection; labels; CLAUDE.md | An empty `muzzle --version` passes every check on a pull request |
 | M1 Core pipeline (v0.1.0) | Fetch from file and URL; type detection; runner base class and registry; bubblewrap backend; report output; doctor | A local hello-world script runs sandboxed with no network and no home access |
 | M2 First runners (v0.2.0) | Python 3 runner with uv and import inference; Bash runner with command-to-package mapping; environment cache; `deps` command | A Python script with three third-party imports and a Bash script using jq and curl both run with zero manual setup |
 | M3 Vetting (v0.3.0) | Finding and score model; GuardDog integration; Semgrep and YARA rule sets; decision gate; `scan` command; `--json` | Synthetic exfiltration, persistence and obfuscation samples are refused; benign network tools are not |
 | M4 Network and sources (v0.4.0) | `--allow-host` filtering; `--listen` port forward; GitHub repo, gist and exploit-db fetchers; archive safety checks | A script reaches only the allowed host, and a callback arrives on the forwarded port |
-| M5 More runners and packaging (v1.0.0) | Podman backend; Python 2, Node, Go, Ruby runners; docs site; PyPI release; AUR package; man page and shell completions | `uvx runsafe` and the AUR package both install and pass doctor on a clean Arch and Kali machine |
+| M5 More runners and packaging (v1.0.0) | Podman backend; Python 2, Node, Go, Ruby runners; docs site; PyPI release; AUR package; man page and shell completions | `uvx muzzle` and the AUR package both install and pass doctor on a clean Arch and Kali machine |
 
 After v1.0.0: Perl, PHP, PowerShell, C/C++ compile-and-serve mode, binary
 scanning, Debian packaging for the Kali request.
@@ -334,8 +336,8 @@ users and a few months of steady releases.
 | Channel | How | When |
 |---|---|---|
 | GitHub Releases | `release.yml` on a `v*` tag, with changelog notes and checksums | Every milestone |
-| PyPI | Trusted publishing from `release.yml`; users run `uvx runsafe` or `pipx install runsafe` | v0.1.0 onwards |
-| AUR | `packaging/aur/PKGBUILD` for `runsafe` (tagged) and `runsafe-git`; covers Arch and Omarchy | v1.0.0 |
+| PyPI | Trusted publishing from `release.yml`; users run `uvx muzzle` or `pipx install muzzle` | v0.1.0 onwards |
+| AUR | `packaging/aur/PKGBUILD` for `muzzle` (tagged) and `muzzle-git`; covers Arch and Omarchy | v1.0.0 |
 | Kali | Debian packaging in `packaging/debian/`, then a New Tool Request on bugs.kali.org | After v1.0.0, with traction |
 
 ### Release steps
@@ -354,7 +356,7 @@ tools policy). Have these ready first:
 - MIT licence and tagged, signed releases
 - Runtime dependencies limited to packages already in Debian (bubblewrap,
   python3, uv or pip)
-- A comparison with the closest tools and what runsafe adds
+- A comparison with the closest tools and what muzzle adds
 - Regular commits and closed issues over at least two to three months
 - Working Debian package built from `packaging/debian/`
 - A short demo and docs site
@@ -366,7 +368,7 @@ Save this document as `docs/SPEC.md` in an empty folder, make sure `gh auth
 status` works, then paste the prompt below.
 
 ```
-You are building `runsafe`, an open-source CLI. The full specification is in
+You are building `muzzle`, an open-source CLI. The full specification is in
 docs/SPEC.md. Read it completely before doing anything.
 
 Work like a professional maintainer:
