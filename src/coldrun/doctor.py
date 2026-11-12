@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import platform
 import shutil
-import subprocess
+import subprocess  # nosemgrep: gitlab.bandit.B404 -- version probes with fixed argv lists
 import sys
 from dataclasses import dataclass
 from enum import Enum
