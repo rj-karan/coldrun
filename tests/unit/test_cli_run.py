@@ -44,7 +44,9 @@ def test_run_rejects_net_allow_for_now() -> None:
 
 
 def test_run_help_lists_flags() -> None:
-    result = CliRunner().invoke(cli.app, ["run", "--help"])
+    # CI sets a colour-capable terminal; keep help plain and wide so flags are not wrapped.
+    env = {"NO_COLOR": "1", "TERM": "dumb", "COLUMNS": "200"}
+    result = CliRunner(env=env).invoke(cli.app, ["run", "--help"])
     assert result.exit_code == 0
     for flag in ("--net", "--rw", "--out", "--backend", "--lang", "--yes", "--force"):
         assert flag in result.output
