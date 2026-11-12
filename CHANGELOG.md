@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Semgrep findings in the sandbox probe and doctor: the probe raises `SandboxError` instead of asserting, and the two `subprocess` imports carry a justified suppression; `semgrep (own code)` and `pip-audit` are now required checks (#62).
+
 ### Added
 
 - `coldrun doctor`: checks Python, bubblewrap, unprivileged user namespaces, TIOCSTI, podman, uv and the cache directory, prints pass/warn/fail with the exact fix, exits 1 on failures (#14).

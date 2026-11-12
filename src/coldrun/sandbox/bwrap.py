@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import os
 import shutil
-import subprocess
+import subprocess  # nosemgrep: gitlab.bandit.B404 -- spawning bwrap is the point; argv lists only
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -201,7 +201,8 @@ class BwrapBackend:
         if not avail.ok:
             raise SandboxError(avail.reason, avail.hint)
         bwrap = self.executable
-        assert bwrap is not None  # noqa: S101 - established by available()
+        if bwrap is None:  # pragma: no cover - available() already failed in that case
+            raise SandboxError("bubblewrap is not installed.", _DOCTOR)
         cmd = [
             bwrap, "--unshare-all", "--die-with-parent", "--new-session",
             "--ro-bind", "/usr", "/usr", "--symlink", "usr/bin", "/bin",
