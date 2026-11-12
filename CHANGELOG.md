@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Fetch step: local file and http(s) URL fetchers place the source in a private 0700 quarantine directory under `~/.cache/coldrun/quarantine/` with a `source.json` (origin, SHA-256, size, time). 64 MiB size cap, redirects limited to http(s), GitHub `blob` URLs rewritten to raw. XDG-aware config and cache paths in `config.py` (#9).
 - `Runner` protocol, `DepSet` and `Finding` models, and an entry-point registry (`coldrun.runners` group) that loads built-in and third-party runners, skips broken plugins with a logged reason, and a shared contract test suite in `tests/unit/runners/contract.py` (#11).
 
 ### Changed
