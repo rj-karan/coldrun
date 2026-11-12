@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from typer.testing import CliRunner
 
-from muzzle import __version__
-from muzzle.cli import app
+from coldrun import __version__
+from coldrun.cli import app
 
 runner = CliRunner()
 
@@ -13,7 +13,7 @@ runner = CliRunner()
 def test_version_flag_prints_package_version() -> None:
     result = runner.invoke(app, ["--version"])
     assert result.exit_code == 0
-    assert result.output.strip() == f"muzzle {__version__}"
+    assert result.output.strip() == f"coldrun {__version__}"
 
 
 def test_short_version_flag() -> None:

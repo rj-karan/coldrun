@@ -13,7 +13,7 @@ body:
     id: proposal
     attributes:
       label: Proposal
-      description: What muzzle should do, with an example command and output if you can
+      description: What coldrun should do, with an example command and output if you can
     validations:
       required: true
   - type: textarea

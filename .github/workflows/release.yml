@@ -46,7 +46,7 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: pypi
-      url: https://pypi.org/p/muzzle
+      url: https://pypi.org/p/coldrun
     permissions:
       id-token: write
     steps:

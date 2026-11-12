@@ -3,7 +3,7 @@ requires = ["hatchling>=1.33.0"]
 build-backend = "hatchling.build"
 
 [project]
-name = "muzzle"
+name = "coldrun"
 version = "0.0.1"
 description = "Fetch, vet and sandbox any downloaded script in one command"
 readme = "README.md"
@@ -33,16 +33,16 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/rj-karan/muzzle"
-Repository = "https://github.com/rj-karan/muzzle"
-Issues = "https://github.com/rj-karan/muzzle/issues"
-Changelog = "https://github.com/rj-karan/muzzle/blob/main/CHANGELOG.md"
+Homepage = "https://github.com/rj-karan/coldrun"
+Repository = "https://github.com/rj-karan/coldrun"
+Issues = "https://github.com/rj-karan/coldrun/issues"
+Changelog = "https://github.com/rj-karan/coldrun/blob/main/CHANGELOG.md"
 
 [project.scripts]
-muzzle = "muzzle.cli:app"
+coldrun = "coldrun.cli:app"
 
 # Third-party runners register here; see docs/writing-a-runner.md (M5).
-[project.entry-points."muzzle.runners"]
+[project.entry-points."coldrun.runners"]
 
 [dependency-groups]
 dev = [
@@ -54,21 +54,21 @@ dev = [
 ]
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/muzzle"]
+packages = ["src/coldrun"]
 
 [tool.hatch.build.targets.sdist]
-include = ["src/muzzle", "tests", "rules", "LICENSE", "README.md", "CHANGELOG.md"]
+include = ["src/coldrun", "tests", "rules", "LICENSE", "README.md", "CHANGELOG.md"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 markers = [
   "sandbox: needs bubblewrap or podman; proves the sandbox holds",
-  "e2e: full muzzle run on a fixture; installs dependencies",
+  "e2e: full coldrun run on a fixture; installs dependencies",
 ]
 addopts = "-ra --strict-markers"
 
 [tool.coverage.run]
-source = ["muzzle"]
+source = ["coldrun"]
 branch = true
 
 [tool.coverage.report]
@@ -132,7 +132,7 @@ ignore = [
 convention = "google"
 
 [tool.ruff.lint.isort]
-known-first-party = ["muzzle"]
+known-first-party = ["coldrun"]
 required-imports = ["from __future__ import annotations"]
 
 [tool.ruff.format]
