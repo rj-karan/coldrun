@@ -1,0 +1,63 @@
+name: Integration
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: integration-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  UV_FROZEN: "1"
+
+jobs:
+  sandbox:
+    name: sandbox and e2e
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          enable-cache: true
+          python-version: "3.12"
+
+      - name: Install bubblewrap and podman
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q --no-install-recommends bubblewrap podman uidmap slirp4netns fuse-overlayfs
+
+      - name: Enable unprivileged user namespaces
+        # Ubuntu 24.04 runner images ship an AppArmor restriction that stops
+        # unprivileged bwrap from creating user namespaces. Lift it, and the
+        # older sysctl if present, then prove bwrap works or fail loudly.
+        run: |
+          set -eu
+          if [ "$(sysctl -n kernel.apparmor_restrict_unprivileged_userns 2>/dev/null || echo 0)" = "1" ]; then
+            echo "AppArmor userns restriction is on; disabling for this runner"
+            sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+          fi
+          if [ "$(sysctl -n kernel.unprivileged_userns_clone 2>/dev/null || echo 1)" = "0" ]; then
+            echo "unprivileged_userns_clone is off; enabling for this runner"
+            sudo sysctl -w kernel.unprivileged_userns_clone=1
+          fi
+          echo "user.max_user_namespaces=$(sysctl -n user.max_user_namespaces)"
+          if ! bwrap --unshare-all --ro-bind /usr /usr --symlink usr/bin /bin --symlink usr/lib /lib --symlink usr/lib64 /lib64 --proc /proc --dev /dev -- /bin/true; then
+            echo "::error::bubblewrap cannot create user namespaces on this runner image. The sandbox tests cannot run here; check the runner image notes and the sysctls above."
+            exit 1
+          fi
+          echo "bubblewrap works unprivileged"
+
+      - name: Check rootless podman
+        run: |
+          podman --version
+          podman info --format '{{.Host.Security.Rootless}} {{.Store.GraphDriverName}}'
+
+      - run: uv sync
+
+      - name: Sandbox and end-to-end tests
+        run: uv run pytest -m "sandbox or e2e" -v

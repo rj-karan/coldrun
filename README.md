@@ -1,5 +1,10 @@
 # muzzle
 
+[![CI](https://github.com/rj-karan/muzzle/actions/workflows/ci.yml/badge.svg)](https://github.com/rj-karan/muzzle/actions/workflows/ci.yml)
+[![Coverage](https://codecov.io/gh/rj-karan/muzzle/graph/badge.svg)](https://codecov.io/gh/rj-karan/muzzle)
+[![PyPI](https://img.shields.io/pypi/v/muzzle?label=pypi)](https://pypi.org/project/muzzle/)
+[![Licence: MIT](https://img.shields.io/badge/licence-MIT-blue.svg)](LICENSE)
+
 Fetch, vet and sandbox any downloaded script in one command.
 
 ```
