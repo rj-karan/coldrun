@@ -126,6 +126,7 @@ ignore = [
   "ANN",    # fixtures and test functions stay light
   "PLR2004",# magic values in assertions are fine
   "ARG",    # fixtures are injected by name
+  "TC",     # type-checking blocks add noise in tests
 ]
 
 [tool.ruff.lint.pydocstyle]

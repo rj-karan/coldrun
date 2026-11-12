@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `Runner` protocol, `DepSet` and `Finding` models, and an entry-point registry (`coldrun.runners` group) that loads built-in and third-party runners, skips broken plugins with a logged reason, and a shared contract test suite in `tests/unit/runners/contract.py` (#11).
+
 ### Changed
 
 - **Breaking:** the project is renamed from `muzzle` to `coldrun`: package, console script, entry-point group `coldrun.runners`, config path `~/.config/coldrun/` and cache path `~/.cache/coldrun/` (#50). The PyPI name `muzzle` belongs to another maintainer; `coldrun` is free everywhere.
