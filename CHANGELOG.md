@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Report layer: `Report` model filled in as the pipeline advances, a Rich summary of source, runner, dependencies, findings by severity, sandbox and network policy, what was blocked, files written and the exit code; errors always print what failed and `next:` what to try; `ExitCode` 100/101/102 (#13).
 - Bubblewrap sandbox backend and the policy model behind every backend: new user, PID, mount, IPC, UTS and network namespaces, no capabilities, `no_new_privs`, read-only `/usr`, private tmpfs `/tmp` and `/run`, scratch directory at `/work`, script mounted read-only, synthetic `/etc/passwd`, resolver and CA files only when network is allowed, environment cleared to an allowlist, `--rw` refused for `/`, `$HOME` and credential directories, TIOCSTI-aware TTY passthrough, and a probe that reports bubblewrap's own error with a `coldrun doctor` hint (#12).
 - Type detection: shared shebang, extension and file-magic signals (`detect.py`), every registered runner scores the file, the best above 0.5 wins, ties and low confidence produce an error naming the candidates and `--lang`; `--lang` forces a runner (#10).
 - Fetch step: local file and http(s) URL fetchers place the source in a private 0700 quarantine directory under `~/.cache/coldrun/quarantine/` with a `source.json` (origin, SHA-256, size, time). 64 MiB size cap, redirects limited to http(s), GitHub `blob` URLs rewritten to raw. XDG-aware config and cache paths in `config.py` (#9).
