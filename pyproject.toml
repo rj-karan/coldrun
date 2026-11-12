@@ -1,0 +1,77 @@
+[build-system]
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
+
+[project]
+name = "muzzle"
+version = "0.0.1"
+description = "Fetch, vet and sandbox any downloaded script in one command"
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "KARAN RJ" }]
+requires-python = ">=3.10"
+keywords = ["sandbox", "bubblewrap", "security", "scripts", "cli"]
+classifiers = [
+  "Development Status :: 2 - Pre-Alpha",
+  "Environment :: Console",
+  "Intended Audience :: Developers",
+  "Intended Audience :: Information Technology",
+  "Operating System :: POSIX :: Linux",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Security",
+  "Topic :: System :: Systems Administration",
+  "Typing :: Typed",
+]
+dependencies = [
+  "typer>=0.12",
+  "rich>=13.7",
+]
+
+[project.urls]
+Homepage = "https://github.com/rj-karan/muzzle"
+Repository = "https://github.com/rj-karan/muzzle"
+Issues = "https://github.com/rj-karan/muzzle/issues"
+Changelog = "https://github.com/rj-karan/muzzle/blob/main/CHANGELOG.md"
+
+[project.scripts]
+muzzle = "muzzle.cli:app"
+
+# Third-party runners register here; see docs/writing-a-runner.md (M5).
+[project.entry-points."muzzle.runners"]
+
+[dependency-groups]
+dev = [
+  "pytest>=8.3",
+  "pytest-cov>=6.0",
+  "ruff>=0.8",
+  "mypy>=1.13",
+  "pre-commit>=4.0",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/muzzle"]
+
+[tool.hatch.build.targets.sdist]
+include = ["src/muzzle", "tests", "rules", "LICENSE", "README.md", "CHANGELOG.md"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+  "sandbox: needs bubblewrap or podman; proves the sandbox holds",
+  "e2e: full muzzle run on a fixture; installs dependencies",
+]
+addopts = "-ra --strict-markers"
+
+[tool.coverage.run]
+source = ["muzzle"]
+branch = true
+
+[tool.coverage.report]
+fail_under = 85
+show_missing = true
+exclude_also = ["if TYPE_CHECKING:", "\\.\\.\\.$"]
