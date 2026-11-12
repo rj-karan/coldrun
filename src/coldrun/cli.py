@@ -7,8 +7,10 @@ its own. Commands are added here as the milestones land.
 from __future__ import annotations
 
 import typer
+from rich.console import Console
 
 from coldrun import __version__
+from coldrun import doctor as doctor_mod
 
 app = typer.Typer(
     name="coldrun",
@@ -37,6 +39,14 @@ def main(
     ),
 ) -> None:
     """Fetch, vet and sandbox any downloaded script in one command."""
+
+
+@app.command()
+def doctor() -> None:
+    """Check bwrap, podman, uv and kernel support, and say how to fix what is missing."""
+    results = doctor_mod.run_checks()
+    doctor_mod.render(results, Console(highlight=False))
+    raise typer.Exit(code=1 if doctor_mod.has_failures(results) else 0)
 
 
 if __name__ == "__main__":  # pragma: no cover
