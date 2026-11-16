@@ -9,7 +9,7 @@ from pathlib import Path
 import pytest
 from rich.console import Console
 
-from coldrun import pipeline
+from coldrun import cache, pipeline
 from coldrun.pipeline import DepsError, RefusedError, RunOptions, Services, choose_backend, decide
 from coldrun.runners.base import DepSet, Runner, RunnerInfo
 from coldrun.runners.registry import Registry
@@ -135,15 +135,30 @@ def test_resolve_failure_is_exit_102(script: Path) -> None:
 def test_install_runs_with_network_and_failure_is_102(script: Path, tmp_path: Path) -> None:
     runner = VettingRunner(install=["pip", "install", "x"])
     backend = FakeBackend(codes=[0, 0])
-    con, _ = console()
+    con, buf = console()
     svc = Services(registry(runner), {"fake": backend})
     code = pipeline.run(RunOptions(source=str(script), out=tmp_path / "o", tty=False), con, svc)
     assert code == 0
     install_policy, install_argv = backend.runs[0]
     assert install_argv == ["pip", "install", "x"]
     assert install_policy.net is NetPolicy.FULL
-    assert backend.runs[1][0].net is NetPolicy.NONE
+    assert install_policy.deps_writable and install_policy.deps_dir is not None
+    run_policy = backend.runs[1][0]
+    assert run_policy.net is NetPolicy.NONE
+    assert run_policy.deps_dir == install_policy.deps_dir and not run_policy.deps_writable
+    assert "(installed)" in buf.getvalue()
 
+    # second run: the environment is cached, so only the script runs
+    backend = FakeBackend(codes=[0])
+    con, buf = console()
+    svc = Services(registry(runner), {"fake": backend})
+    assert (
+        pipeline.run(RunOptions(source=str(script), out=tmp_path / "o", tty=False), con, svc) == 0
+    )
+    assert len(backend.runs) == 1
+    assert "(cached)" in buf.getvalue()
+
+    cache.clean()  # forget the environment so the install runs again and fails
     backend = FakeBackend(codes=[1])
     con, buf = console()
     svc = Services(registry(runner), {"fake": backend})
@@ -151,6 +166,7 @@ def test_install_runs_with_network_and_failure_is_102(script: Path, tmp_path: Pa
     assert code == 102
     assert "Installing dependencies failed" in buf.getvalue()
     assert len(backend.runs) == 1
+    assert not backend.runs[0][0].deps_dir.exists()  # type: ignore[union-attr]
 
 
 def test_high_refuses_unless_force(script: Path, tmp_path: Path) -> None:

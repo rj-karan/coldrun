@@ -35,6 +35,8 @@ def test_relative_paths_are_rejected(tmp_path: Path) -> None:
         mkpolicy(tmp_path, ro_paths=(Path("venv"),))
     with pytest.raises(PolicyError, match="read-only path must be absolute"):
         mkpolicy(tmp_path, binaries=(Path("uv"),))
+    with pytest.raises(PolicyError, match="read-only path must be absolute"):
+        mkpolicy(tmp_path, deps_dir=Path("env"))
 
 
 @pytest.mark.parametrize("bad", ["/", "~"])

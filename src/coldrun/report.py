@@ -60,6 +60,7 @@ class Report:
     deps: DepSet | None = None
     findings: list[Finding] = field(default_factory=list)
     verdict: str | None = None
+    env: str | None = None
     backend: str | None = None
     net: str = "none"
     blocked: list[str] = field(default_factory=list)
@@ -124,6 +125,8 @@ def render(report: Report, console: Console) -> None:
         table.add_row("findings", _format_findings(report.findings))
     if report.verdict is not None:
         table.add_row("verdict", report.verdict)
+    if report.env is not None:
+        table.add_row("environment", report.env)
     if report.backend is not None:
         table.add_row("sandbox", f"{report.backend}, network {report.net}")
     if report.blocked:

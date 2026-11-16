@@ -127,6 +127,17 @@ def test_rw_and_ro_paths_are_mounted_at_same_location(tmp_path: Path) -> None:
     assert (str(venv), str(venv)) in pairs(cmd, "--ro-bind")
 
 
+def test_deps_dir_is_bound_rw_for_install_and_ro_for_run(tmp_path: Path) -> None:
+    env = tmp_path / "env"
+    env.mkdir()
+    ro = backend().command(mkpolicy(tmp_path, deps_dir=env), ["x"], tiocsti_blocked=False)
+    assert (str(env), "/work/.coldrun/deps") in pairs(ro, "--ro-bind")
+    rw = backend().command(
+        mkpolicy(tmp_path, deps_dir=env, deps_writable=True), ["x"], tiocsti_blocked=False
+    )
+    assert (str(env), "/work/.coldrun/deps") in pairs(rw, "--bind")
+
+
 def test_binaries_are_exposed_under_usr_local_bin(tmp_path: Path) -> None:
     uv = tmp_path / ".local" / "bin" / "uv"
     uv.parent.mkdir(parents=True)

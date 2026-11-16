@@ -69,7 +69,11 @@ def test_python_script_with_three_imports_installs_and_runs(
     assert res.returncode == 0, res.stdout + res.stderr
     assert "imports ok requests yaml BeautifulSoup" in res.stdout
     assert "PyYAML, beautifulsoup4, requests" in res.stderr
+    assert "(installed)" in res.stderr
     assert not (tmp_path / "coldrun-out").exists()  # deps dir is not an output
+    again = coldrun("run", fixture.as_posix(), cwd=tmp_path, env=env)
+    assert again.returncode == 0, again.stdout + again.stderr
+    assert "(cached)" in again.stderr
 
 
 def test_bash_script_using_jq_and_curl(tmp_path: Path, env: dict[str, str]) -> None:

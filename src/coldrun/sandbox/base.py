@@ -18,6 +18,8 @@ if TYPE_CHECKING:
 
 #: Where the script and its scratch space appear inside the sandbox.
 WORKDIR = "/work"
+#: Where a cached environment is bound inside the sandbox; excluded from --out.
+DEPS_DIR = f"{WORKDIR}/.coldrun/deps"
 #: Exit code the CLI uses when the sandbox itself could not be set up.
 EXIT_SANDBOX_FAILED = 101
 
@@ -108,6 +110,8 @@ class Policy:
         binaries: Host executables exposed read-only as ``/usr/local/bin/<name>``
             so tools outside ``/usr`` (uv in ``~/.local/bin``) work without
             revealing their host path.
+        deps_dir: Cached environment bound at :data:`DEPS_DIR`, writable only
+            while installing.
         env: Extra variables, already decided safe by the caller, layered on
             top of the scrubbed allowlist.
         tty: Whether stdin is a terminal and should pass through.
@@ -120,6 +124,8 @@ class Policy:
     rw_paths: tuple[Path, ...] = ()
     ro_paths: tuple[Path, ...] = ()
     binaries: tuple[Path, ...] = ()
+    deps_dir: Path | None = None
+    deps_writable: bool = False
     env: Mapping[str, str] = field(default_factory=dict)
     tty: bool = False
     hostname: str = "coldrun"
@@ -131,7 +137,8 @@ class Policy:
             raise PolicyError(msg)
         for p in self.rw_paths:
             check_rw_path(p)
-        for p in (*self.ro_paths, *self.binaries):
+        extra = (self.deps_dir,) if self.deps_dir is not None else ()
+        for p in (*self.ro_paths, *self.binaries, *extra):
             if not p.is_absolute():
                 msg = f"read-only path must be absolute: {p}"
                 raise PolicyError(msg)
