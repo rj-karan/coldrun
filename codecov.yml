@@ -1,0 +1,2 @@
+# Codecov: keep the status checks, drop the PR comment that emails the author on every push.
+comment: false
