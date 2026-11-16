@@ -40,7 +40,14 @@ def test_run_builds_options_and_passes_script_args(
 def test_deps_command_passes_through(monkeypatch: pytest.MonkeyPatch) -> None:
     seen: dict[str, object] = {}
 
-    def fake(source: str, lang: str | None, console: object, services: object = None) -> int:
+    def fake(
+        source: str,
+        lang: str | None,
+        console: object,
+        services: object = None,
+        *,
+        as_json: bool = False,
+    ) -> int:
         seen.update(source=source, lang=lang)
         return 7
 
@@ -53,7 +60,14 @@ def test_deps_command_passes_through(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_scan_command_passes_through(monkeypatch: pytest.MonkeyPatch) -> None:
     seen: dict[str, object] = {}
 
-    def fake(source: str, lang: str | None, console: object, services: object = None) -> int:
+    def fake(
+        source: str,
+        lang: str | None,
+        console: object,
+        services: object = None,
+        *,
+        as_json: bool = False,
+    ) -> int:
         seen.update(source=source, lang=lang)
         return 7
 

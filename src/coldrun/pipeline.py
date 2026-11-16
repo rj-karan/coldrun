@@ -6,6 +6,8 @@ and the steps can be tested with fake backends and registries.
 
 from __future__ import annotations
 
+import contextlib
+import os
 import re
 import shutil
 import sys
@@ -16,7 +18,15 @@ from typing import TYPE_CHECKING
 from coldrun import cache
 from coldrun.detect import detect
 from coldrun.fetch import fetch
-from coldrun.report import ExitCode, Report, default_blocked, exit_code_for, render, render_error
+from coldrun.report import (
+    ExitCode,
+    Report,
+    default_blocked,
+    emit_json,
+    exit_code_for,
+    render,
+    render_error,
+)
 from coldrun.runners.registry import Registry, default_registry
 from coldrun.runners.shell import package_for
 from coldrun.sandbox import BwrapBackend, NetPolicy, Policy, SandboxError
@@ -25,7 +35,7 @@ from coldrun.vet import engine, guarddog
 from coldrun.vet.scoring import score
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Sequence
+    from collections.abc import Callable, Iterator, Sequence
 
     from rich.console import Console
 
@@ -78,6 +88,7 @@ class RunOptions:
     yes: bool = False
     force: bool = False
     tty: bool | None = None
+    json: bool = False
 
     def is_tty(self) -> bool:
         """Whether stdin is a terminal, unless overridden."""
@@ -285,15 +296,51 @@ def run(opts: RunOptions, console: Console, services: Services | None = None) ->
     try:
         code = _run(opts, console, services, report)
     except Exception as exc:
-        report.exit_code = exit_code_for(exc)
-        render(report, console)
-        render_error(exc, console)
-        return report.exit_code
+        return _finish(report, console, exc, opts.json)
+    return _finish(report, console, None, opts.json, code)
+
+
+def _finish(
+    report: Report,
+    console: Console,
+    error: BaseException | None,
+    as_json: bool,
+    code: int = 0,
+) -> int:
+    """Render the report (and the error), emit JSON when asked, return the exit code."""
+    if error is not None:
+        report.exit_code = code = exit_code_for(error)
     render(report, console)
+    if error is not None:
+        render_error(error, console)
+    if as_json:
+        report.exit_code = code  # scan and deps keep the row out of the human report
+        emit_json(report, error)
     return code
 
 
-def deps(source: str, lang: str | None, console: Console, services: Services | None = None) -> int:
+@contextlib.contextmanager
+def _stdout_to_stderr() -> Iterator[None]:
+    """Send the script's stdout to stderr so ``--json`` owns stdout."""
+    # shortcut: output is not captured into the document; add a "stdout" field if asked
+    saved = os.dup(1)
+    sys.stdout.flush()
+    os.dup2(2, 1)
+    try:
+        yield
+    finally:
+        os.dup2(saved, 1)
+        os.close(saved)
+
+
+def deps(
+    source: str,
+    lang: str | None,
+    console: Console,
+    services: Services | None = None,
+    *,
+    as_json: bool = False,
+) -> int:
     """``coldrun deps``: fetch, detect and resolve, then report. Never installs or runs."""
     services = services or Services()
     report = Report()
@@ -303,12 +350,8 @@ def deps(source: str, lang: str | None, console: Console, services: Services | N
         report.detection = detect(fetched.path, services.registry, lang)
         report.deps = _resolve(report.detection.runner, fetched.path)
     except Exception as exc:
-        report.exit_code = exit_code_for(exc)
-        render(report, console)
-        render_error(exc, console)
-        return report.exit_code
-    render(report, console)
-    return 0
+        return _finish(report, console, exc, as_json)
+    return _finish(report, console, None, as_json)
 
 
 def _vet(
@@ -318,7 +361,14 @@ def _vet(
     return findings + services.scan_deps(deps) if deps_too else findings
 
 
-def scan(source: str, lang: str | None, console: Console, services: Services | None = None) -> int:
+def scan(
+    source: str,
+    lang: str | None,
+    console: Console,
+    services: Services | None = None,
+    *,
+    as_json: bool = False,
+) -> int:
     """``coldrun scan``: fetch, detect, resolve and vet, then report. Never builds or runs.
 
     Exits 100 when the verdict is high, so ``coldrun scan x && coldrun run x`` works.
@@ -333,13 +383,10 @@ def scan(source: str, lang: str | None, console: Console, services: Services | N
         report.deps = _resolve(runner, fetched.path)
         report.findings = _vet(fetched.path, runner, report.deps, services, deps_too=True)
     except Exception as exc:
-        report.exit_code = exit_code_for(exc)
-        render(report, console)
-        render_error(exc, console)
-        return report.exit_code
+        return _finish(report, console, exc, as_json)
     report.verdict = score(report.findings).level
-    render(report, console)
-    return ExitCode.REFUSED if report.verdict == "high" else 0
+    code = ExitCode.REFUSED if report.verdict == "high" else 0
+    return _finish(report, console, None, as_json, code)
 
 
 def _run(opts: RunOptions, console: Console, services: Services, report: Report) -> int:
@@ -373,7 +420,8 @@ def _run(opts: RunOptions, console: Console, services: Services, report: Report)
     )
     report.env = _install(backend, policy, runner, deps)
     # 7 run
-    code = backend.run(policy, argv)
+    with _stdout_to_stderr() if opts.json else contextlib.nullcontext():
+        code = backend.run(policy, argv)
 
     report.blocked = default_blocked(opts.net.value)  # 8 report
     report.wrote = _collect_outputs(scratch, opts.out, fetched.path.name)

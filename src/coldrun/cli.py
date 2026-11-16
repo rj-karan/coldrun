@@ -26,6 +26,11 @@ app = typer.Typer(
 )
 
 
+JSON_HELP = (
+    "Print one JSON document on stdout (docs/report.schema.json); human output goes to stderr."
+)
+
+
 def _version_callback(value: bool) -> None:
     if value:
         typer.echo(f"coldrun {__version__}")
@@ -74,18 +79,22 @@ def cache_clean() -> None:
 def deps(
     source: str = typer.Argument(..., help="Local path, http(s) URL or GitHub blob URL."),
     lang: str | None = typer.Option(None, "--lang", help="Override type detection."),
+    as_json: bool = typer.Option(False, "--json", help=JSON_HELP),
 ) -> None:
     """Print the resolved dependencies of SOURCE without installing or running anything."""
-    raise typer.Exit(code=pipeline_mod.deps(source, lang, make_console()))
+    code = pipeline_mod.deps(source, lang, make_console(stderr=as_json), as_json=as_json)
+    raise typer.Exit(code=code)
 
 
 @app.command()
 def scan(
     source: str = typer.Argument(..., help="Local path, http(s) URL or GitHub blob URL."),
     lang: str | None = typer.Option(None, "--lang", help="Override type detection."),
+    as_json: bool = typer.Option(False, "--json", help=JSON_HELP),
 ) -> None:
     """Vet SOURCE and print the findings and verdict without building a sandbox or running it."""
-    raise typer.Exit(code=pipeline_mod.scan(source, lang, make_console()))
+    code = pipeline_mod.scan(source, lang, make_console(stderr=as_json), as_json=as_json)
+    raise typer.Exit(code=code)
 
 
 @app.command()
@@ -111,6 +120,7 @@ def run(
     lang: str | None = typer.Option(None, "--lang", help="Override type detection."),
     yes: bool = typer.Option(False, "--yes", help="Skip the confirmation on medium risk."),
     force: bool = typer.Option(False, "--force", help="Run despite a high-risk verdict."),
+    as_json: bool = typer.Option(False, "--json", help=JSON_HELP),
 ) -> None:
     """Fetch, vet, sandbox and run SOURCE. Everything after -- goes to the script."""
     if net is NetPolicy.ALLOW:
@@ -126,6 +136,7 @@ def run(
         lang=lang,
         yes=yes,
         force=force,
+        json=as_json,
     )
     raise typer.Exit(code=pipeline_mod.run(opts, make_console(stderr=True)))
 

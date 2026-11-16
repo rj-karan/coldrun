@@ -7,9 +7,11 @@ the same way: what failed, then the next command to try.
 
 from __future__ import annotations
 
+import json
+import sys
 from dataclasses import dataclass, field
 from enum import IntEnum
-from typing import TYPE_CHECKING, Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
 from rich.console import Console
 from rich.table import Table
@@ -75,6 +77,54 @@ class Report:
             return None
         return max((f.severity for f in self.findings), key=lambda s: s.rank)
 
+    def to_dict(self, error: BaseException | None = None) -> dict[str, Any]:
+        """The report as plain data for ``--json``; see ``docs/report.schema.json``."""
+        src, det, deps = self.source, self.detection, self.deps
+        return {
+            "schema_version": SCHEMA_VERSION,
+            "source": src
+            and {
+                "kind": src.kind,
+                "origin": src.origin,
+                "sha256": src.sha256,
+                "size": src.size,
+                "fetched_at": src.fetched_at,
+            },
+            "runner": det
+            and {"name": det.runner.name, "confidence": det.confidence, "reasons": det.reasons},
+            "deps": deps
+            and {
+                "ecosystem": deps.ecosystem,
+                "packages": list(deps.packages),
+                "system_binaries": list(deps.system_binaries),
+                "interpreter": deps.interpreter,
+                "source": deps.source,
+            },
+            "findings": [
+                {
+                    "rule_id": f.rule_id,
+                    "severity": f.severity.value,
+                    "file": f.file.name,
+                    "line": f.line,
+                    "message": f.message,
+                    "host": f.host,
+                }
+                for f in self.findings
+            ],
+            "verdict": self.verdict,
+            "environment": self.env,
+            "sandbox": self.backend
+            and {"backend": self.backend, "net": self.net, "blocked": self.blocked},
+            "wrote": self.wrote,
+            "out_dir": self.out_dir,
+            "exit_code": self.exit_code,
+            "error": error and dict(zip(("what", "hint"), error_parts(error), strict=True)),
+        }
+
+
+#: Bump when a field changes meaning or disappears; adding fields keeps the version.
+SCHEMA_VERSION = 1
+
 
 _SEVERITY_STYLE = {
     Severity.INFO: "dim",
@@ -139,14 +189,24 @@ def render(report: Report, console: Console) -> None:
     console.print(table)
 
 
+def error_parts(err: BaseException) -> tuple[str, str]:
+    """``(what failed, what to try next)`` for any pipeline error."""
+    if isinstance(err, UserFacingError):
+        return err.what, err.hint
+    return f"{type(err).__name__}: {err}", "rerun with COLDRUN_DEBUG=1 and open an issue."
+
+
 def render_error(err: BaseException, console: Console) -> None:
     """Print a failure as *what failed* then *next: what to try*."""
-    if isinstance(err, UserFacingError):
-        console.print(Text(err.what, style="bold red"))
-        console.print(Text(f"next: {err.hint}", style="yellow"))
-    else:
-        console.print(Text(f"{type(err).__name__}: {err}", style="bold red"))
-        console.print(Text("next: rerun with COLDRUN_DEBUG=1 and open an issue.", style="yellow"))
+    what, hint = error_parts(err)
+    console.print(Text(what, style="bold red"))
+    console.print(Text(f"next: {hint}", style="yellow"))
+
+
+def emit_json(report: Report, error: BaseException | None = None) -> None:
+    """Write the report as one JSON document to stdout."""
+    sys.stdout.write(json.dumps(report.to_dict(error), indent=2) + "\n")
+    sys.stdout.flush()
 
 
 def exit_code_for(err: BaseException) -> int:
