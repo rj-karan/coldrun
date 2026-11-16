@@ -21,6 +21,7 @@ import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import TYPE_CHECKING
+from urllib.parse import quote
 
 from coldrun.vet.findings import Finding, Severity
 
@@ -68,8 +69,10 @@ def release_age_days(ecosystem: str, name: str, version: str | None) -> int | No
     # shortcut: PyPI only; npm/go/rubygems ages arrive with their runners (M5)
     if ecosystem != "pypi":
         return None
-    url = f"https://pypi.org/pypi/{name}/{version + '/' if version else ''}json"
+    path = "/".join(quote(part, safe="") for part in (name, version) if part)
+    url = f"https://pypi.org/pypi/{path}/json"
     try:
+        # nosemgrep -- the scheme and host are fixed and the path is quoted
         with urllib.request.urlopen(url, timeout=10) as resp:
             files = json.load(resp).get("urls", [])
         uploaded = max(f["upload_time_iso_8601"] for f in files)
