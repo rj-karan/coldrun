@@ -1,7 +1,7 @@
 """Finding model shared by runners and the vetting engine.
 
-Scoring and aggregation arrive with the vetting milestone; this module only
-defines what a single finding looks like so runners can emit them.
+Scoring and aggregation live in :mod:`coldrun.vet.scoring`; this module only
+defines what a single finding looks like so runners and rules can emit them.
 """
 
 from __future__ import annotations
@@ -48,6 +48,8 @@ class Finding:
     file: Path
     message: str
     line: int | None = None
+    #: Hardcoded IP or domain the finding is about; exempted by ``--allow-host``.
+    host: str | None = None
 
     def __post_init__(self) -> None:
         """Reject findings that would be useless to the user."""

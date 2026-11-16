@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Risk score model: `vet.scoring.score` folds findings into a low, medium or high verdict with reasons; findings about hosts in `--allow-host` are dropped, any other hardcoded host is always surfaced (#20).
+
 ## [0.2.0] - 2026-11-16
 
 Completes milestone M2: a Python script with three third-party imports and a Bash script using jq and curl both run with zero manual setup.
