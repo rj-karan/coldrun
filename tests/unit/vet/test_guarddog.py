@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import io
+import json
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import pytest
@@ -9,10 +12,17 @@ from coldrun.vet import guarddog
 from coldrun.vet.findings import Severity
 
 FAKE = str(Path(__file__).resolve().parents[2] / "fixtures" / "deps" / "fake_guarddog.py")
+real_age = guarddog.release_age_days  # bound before the autouse fixture patches the module
 
 
 def pypi(*pkgs: str) -> DepSet:
     return DepSet("pypi", pkgs, (), "python3", "test")
+
+
+@pytest.fixture(autouse=True)
+def young_release(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Treat every package as published yesterday unless a test says otherwise."""
+    monkeypatch.setattr(guarddog, "release_age_days", lambda *_: 1)
 
 
 def test_skips_unknown_ecosystem_and_empty_depsets() -> None:
@@ -93,3 +103,52 @@ def test_unrunnable_binary_is_a_low_finding(tmp_path: Path) -> None:
     (f,) = guarddog.scan_deps(pypi("x"), exe=str(tmp_path / "nope"))
     assert f.rule_id == "guarddog.failed"
     assert "No such file" in f.message
+
+
+def test_old_release_is_capped_at_low(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(guarddog, "release_age_days", lambda *_: guarddog.TRUSTED_AGE_DAYS + 1)
+    found = guarddog.scan_deps(pypi("evil", "hooked"), exe=FAKE)
+    assert found and {f.severity for f in found} == {Severity.LOW}
+    monkeypatch.setattr(guarddog, "release_age_days", lambda *_: None)  # unknown age: no cap
+    (f,) = guarddog.scan_deps(pypi("evil"), exe=FAKE)
+    assert f.severity is Severity.HIGH
+
+
+class _Resp(io.BytesIO):
+    def __enter__(self) -> _Resp:
+        return self
+
+    def __exit__(self, *a: object) -> None:
+        pass
+
+
+def test_release_age_from_pypi_json(monkeypatch: pytest.MonkeyPatch) -> None:
+    seen: list[str] = []
+    stamp = (datetime.now(timezone.utc) - timedelta(days=45)).isoformat().replace("+00:00", "Z")
+
+    def fake_urlopen(url: str, timeout: float) -> _Resp:
+        seen.append(url)
+        return _Resp(json.dumps({"urls": [{"upload_time_iso_8601": stamp}]}).encode())
+
+    monkeypatch.setattr("urllib.request.urlopen", fake_urlopen)
+    assert real_age("pypi", "requests", None) == 45
+    assert real_age("pypi", "requests", "2.0") == 45
+    assert seen == [
+        "https://pypi.org/pypi/requests/json",
+        "https://pypi.org/pypi/requests/2.0/json",
+    ]
+    assert real_age("npm", "left-pad", None) is None
+
+
+@pytest.mark.parametrize("body", [b"not json", b'{"urls": []}', b'{"urls": [{}]}'])
+def test_release_age_unknown_on_bad_metadata(monkeypatch: pytest.MonkeyPatch, body: bytes) -> None:
+    monkeypatch.setattr("urllib.request.urlopen", lambda *_, **__: _Resp(body))
+    assert real_age("pypi", "x", None) is None
+
+
+def test_release_age_unknown_when_offline(monkeypatch: pytest.MonkeyPatch) -> None:
+    def boom(*_: object, **__: object) -> _Resp:
+        raise OSError("offline")
+
+    monkeypatch.setattr("urllib.request.urlopen", boom)
+    assert real_age("pypi", "x", None) is None
