@@ -101,3 +101,26 @@ def test_net_allow_is_not_available_yet(tmp_path: Path, env: dict[str, str]) -> 
     res = coldrun("run", str(FX / "hello.sh"), "--net", "allow", cwd=tmp_path, env=env)
     assert res.returncode == 2
     assert "#26" in res.stderr
+
+
+@pytest.mark.parametrize(
+    "sample",
+    [
+        "yara/persistence_cron.match.sh",
+        "yara/obfuscated_shell.match.sh",
+        "semgrep/py-exec-decoded.match.py",
+    ],
+)
+def test_synthetic_malicious_samples_are_refused(
+    tmp_path: Path, env: dict[str, str], sample: str
+) -> None:
+    res = coldrun("run", (FX.parent / "vet" / sample).as_posix(), cwd=tmp_path, env=env)
+    assert res.returncode == 100, res.stdout + res.stderr
+    assert "refusing to run" in res.stderr
+
+
+def test_benign_network_script_is_not_refused(tmp_path: Path, env: dict[str, str]) -> None:
+    sample = FX.parent / "vet" / "yara" / "download_exec.nomatch.sh"
+    res = coldrun("run", sample.as_posix(), cwd=tmp_path, env=env)
+    assert res.returncode != 100, res.stdout + res.stderr  # curl fails offline, vetting lets it run
+    assert "verdict       low" in res.stderr

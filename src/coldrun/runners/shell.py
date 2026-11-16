@@ -108,6 +108,7 @@ _SPLIT = re.compile(r"\|\||&&|[|;&]|\$\(|`|\(|\)")
 #: command -> (arch package, debian package); extend as scripts meet them.
 PACKAGES: dict[str, tuple[str, str]] = {
     "jq": ("jq", "jq"),
+    "crontab": ("cronie", "cron"),
     "curl": ("curl", "curl"),
     "wget": ("wget", "wget"),
     "nmap": ("nmap", "nmap"),
@@ -210,7 +211,7 @@ class ShellRunner:
         return [_SHELLS[self._interpreter(path)], str(path), *args]
 
     def vet(self, path: Path, deps: DepSet) -> list[Finding]:
-        """Shell-specific rules arrive with the vetting milestone."""
+        """Nothing beyond the YARA rules, which already read shell idioms."""
         return []
 
     @staticmethod

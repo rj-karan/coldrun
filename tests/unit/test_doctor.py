@@ -21,6 +21,8 @@ def probes(tmp_path: Path, **kw: object) -> Probes:
         "python_version": (3, 12),
         "kernel": "7.1.9-arch1-2",
         "cache": tmp_path / "cache",
+        "semgrep": lambda: "/usr/bin/semgrep",
+        "yara_version": lambda: "4.5.4",
     }
     base.update(kw)
     return Probes(**base)  # type: ignore[arg-type]
@@ -29,7 +31,8 @@ def probes(tmp_path: Path, **kw: object) -> Probes:
 def test_all_green(tmp_path: Path) -> None:
     results = doctor.run_checks(probes(tmp_path))
     assert [r.name for r in results] == [
-        "python", "bubblewrap", "user namespaces", "TIOCSTI", "podman", "uv", "guarddog", "cache",
+        "python", "bubblewrap", "user namespaces", "TIOCSTI", "podman", "uv",
+        "guarddog", "semgrep", "yara", "cache",
     ]  # fmt: skip
     assert all(r.status is Status.PASS for r in results)
     assert "bwrap 9.9" in results[1].detail
@@ -46,6 +49,8 @@ def test_missing_tools_and_broken_userns(tmp_path: Path) -> None:
             userns_problem=lambda: ("userns off", "sysctl it on"),
             tiocsti_blocked=lambda: False,
             python_version=(3, 9),
+            semgrep=lambda: None,
+            yara_version=lambda: None,
         )
     )
     by = {r.name: r for r in results}
@@ -57,6 +62,8 @@ def test_missing_tools_and_broken_userns(tmp_path: Path) -> None:
     assert by["podman"].status is Status.WARN
     assert by["uv"].status is Status.WARN and "astral.sh" in by["uv"].fix
     assert by["guarddog"].status is Status.WARN and "uv tool install" in by["guarddog"].fix
+    assert by["semgrep"].status is Status.WARN and "coldrun[vet]" in by["semgrep"].fix
+    assert by["yara"].status is Status.WARN and "coldrun[vet]" in by["yara"].fix
     assert by["python"].status is Status.FAIL and "3.9" in by["python"].detail
     assert doctor.has_failures(results)
 

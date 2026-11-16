@@ -61,8 +61,9 @@ run reuses that environment.
 ## Install
 
 ```
-uvx coldrun --version          # run without installing
-pipx install coldrun           # or install for good
+uv tool install 'coldrun[vet]'   # with the script vetting rules (Semgrep and YARA)
+pipx install 'coldrun[vet]'      # or with pipx
+uvx coldrun --version            # or run without installing (no vetting)
 ```
 
 Needs Linux, Python 3.10+ and [bubblewrap](https://github.com/containers/bubblewrap)

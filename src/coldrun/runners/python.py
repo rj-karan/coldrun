@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING
 
 from coldrun.detect import interpreter_from_shebang, read_shebang
 from coldrun.runners.base import GUEST_DEPS_DIR, DepSet
+from coldrun.vet.engine import scan_semgrep
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -112,8 +113,8 @@ class PythonRunner:
         ]
 
     def vet(self, path: Path, deps: DepSet) -> list[Finding]:
-        """Python rules arrive with the vetting milestone."""
-        return []
+        """Semgrep rules for Python; the text-level YARA rules run for every language."""
+        return scan_semgrep(path)
 
 
 def _third_party_imports(text: str, beside: Path) -> list[str]:
