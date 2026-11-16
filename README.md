@@ -76,7 +76,7 @@ and Ubuntu). `coldrun doctor` checks the rest.
 coldrun run SOURCE [flags] [-- script args]   # fetch, detect, vet, sandbox, run
 coldrun scan SOURCE                           # vet only: findings and verdict, exit 100 on high
 coldrun deps SOURCE                           # print resolved dependencies, run nothing
-coldrun doctor                                # check bwrap, user namespaces, uv, podman
+coldrun doctor                                # check bwrap, user namespaces, uv, vetting tools
 coldrun cache list | clean                    # cached dependency environments
 ```
 
@@ -92,6 +92,7 @@ after `--` is passed to the script untouched.
 | `--lang NAME` | auto | Override type detection |
 | `--yes` | off | Skip the confirmation on medium risk |
 | `--force` | off | Run despite a high-risk verdict; prints a warning |
+| `--json` | off | One JSON document on stdout; human output and the script's stdout go to stderr |
 
 ### What the sandbox guarantees
 
@@ -124,10 +125,11 @@ not be set up; run `coldrun doctor`) and `102` (dependency resolution failed).
 
 ## Status
 
-v0.2.0 completes milestone M2 of the [spec](docs/SPEC.md): Python and Bash
-scripts run sandboxed with their dependencies resolved. Vetting with Semgrep,
-YARA and GuardDog (M3), `--allow-host` and GitHub/gist/exploit-db sources
-(M4), and Podman plus more runners (M5) follow.
+v0.3.0 completes milestone M3 of the [spec](docs/SPEC.md): Python and Bash
+scripts run sandboxed with their dependencies resolved, and both the script
+(Semgrep and YARA rules) and its dependencies (GuardDog) are vetted first.
+`--allow-host` and GitHub/gist/exploit-db sources (M4), and Podman plus more
+runners (M5) follow.
 
 ## Contributing
 

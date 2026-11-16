@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-11-17
+
+Completes milestone M3: scripts and their dependencies are vetted before anything runs. Synthetic exfiltration, persistence and obfuscation samples are refused; benign network tools are not.
+
 ### Added
 
 - `--json` on `run`, `scan` and `deps`: one document on stdout matching `docs/report.schema.json` (schema version 1); human output and the script's stdout go to stderr (#25).
@@ -72,7 +76,8 @@ Foundation release (published under the former name `muzzle`): an empty `muzzle 
 - Issue templates (bug, feature, new runner, false positive), pull request template, CODEOWNERS, CONTRIBUTING, SECURITY and CODE_OF_CONDUCT (#4).
 - CLAUDE.md with the repo workflow, branch protection, code quality bar and the hard security rules for agents and contributors (#8).
 
-[Unreleased]: https://github.com/rj-karan/coldrun/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/rj-karan/coldrun/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/rj-karan/coldrun/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/rj-karan/coldrun/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/rj-karan/coldrun/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/rj-karan/coldrun/compare/v0.0.1...v0.1.0
