@@ -21,7 +21,7 @@ from coldrun.runners.registry import Registry, default_registry
 from coldrun.runners.shell import package_for
 from coldrun.sandbox import BwrapBackend, NetPolicy, Policy, SandboxError
 from coldrun.sandbox.base import WORKDIR
-from coldrun.vet.findings import Severity
+from coldrun.vet.scoring import score
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -122,19 +122,17 @@ def decide(
 ) -> str:
     """Step 5: low runs, medium asks, high refuses unless ``--force``.
 
-    Returns the verdict label. The full score model lands in #20 and #23;
-    until then the verdict is the highest severity among the findings.
+    Returns the verdict level from :func:`coldrun.vet.scoring.score`.
     """
-    top = max((f.severity for f in findings), key=lambda s: s.rank, default=Severity.LOW)
-    verdict = {Severity.INFO: "low"}.get(top, top.value)
-    if top is Severity.HIGH:
+    verdict = score(findings).level
+    if verdict == "high":
         if not opts.force:
             raise RefusedError(
                 "Vetting found high-risk behaviour; refusing to run.",
                 "Review the findings above, then rerun with --force if you accept the risk.",
             )
         console.print("[bold red]warning:[/] running despite a high-risk verdict (--force)")
-    elif top is Severity.MEDIUM and not opts.yes:
+    elif verdict == "medium" and not opts.yes:
         if services.confirm is not None:
             ok = bool(services.confirm("Medium risk. Run anyway?"))  # type: ignore[operator]
         elif opts.is_tty():
