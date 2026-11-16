@@ -83,6 +83,13 @@ def test_bash_script_using_jq_and_curl(tmp_path: Path, env: dict[str, str]) -> N
     assert "binaries: curl, cut, head, jq" in res.stderr
 
 
+def test_deps_command_on_python_fixture(tmp_path: Path, env: dict[str, str]) -> None:
+    res = coldrun("deps", (FX.parent / "python" / "imports.py").as_posix(), cwd=tmp_path, env=env)
+    assert res.returncode == 0, res.stdout + res.stderr
+    assert "pypi: PyYAML, beautifulsoup4, requests" in res.stdout
+    assert "sandbox" not in res.stdout
+
+
 def test_unknown_lang_is_a_usage_error(tmp_path: Path, env: dict[str, str]) -> None:
     res = coldrun("run", str(FX / "hello.sh"), "--lang", "cobol", cwd=tmp_path, env=env)
     assert res.returncode == 2

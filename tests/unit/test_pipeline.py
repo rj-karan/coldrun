@@ -330,6 +330,23 @@ def test_binaries_reach_both_install_and_run_policies(
     assert [p.binaries for p, _ in backend.runs] == [(home_uv,), (home_uv,)]
 
 
+def test_deps_command_resolves_without_running(script: Path) -> None:
+    backend = FakeBackend()
+    con, buf = console()
+    code = pipeline.deps(str(script), None, con, Services(registry(ShellRunner()), {"f": backend}))
+    assert code == 0
+    assert backend.runs == []
+    out = " ".join(buf.getvalue().split())
+    assert "runner sh" in out and "dependencies" in out and "sandbox" not in out
+
+    con, buf = console()
+    code = pipeline.deps("/nope.sh", None, con, Services(registry(ShellRunner()), {}))
+    assert code == 2 and "next:" in buf.getvalue()
+    con, buf = console()
+    code = pipeline.deps(str(script), "cobol", con, Services(registry(ShellRunner()), {}))
+    assert code == 2 and "no runner named 'cobol'" in buf.getvalue()
+
+
 def test_error_classes_carry_exit_codes() -> None:
     assert DepsError("a", "b").exit_code == 102
     assert RefusedError("a", "b").exit_code == 100
