@@ -67,7 +67,7 @@ class NetPolicy(str, Enum):
     """Network access inside the sandbox."""
 
     NONE = "none"
-    ALLOW = "allow"  # only --allow-host destinations; enforced from M4
+    ALLOW = "allow"  # only --allow-host destinations, through the host-side proxy
     FULL = "full"
 
 
@@ -103,6 +103,7 @@ class Policy:
             script's cwd. Files it writes land here and are copied to
             ``--out`` by the pipeline.
         net: Network policy. ``NONE`` by default.
+        allow_hosts: ``HOST[:PORT]`` destinations for ``NetPolicy.ALLOW``.
         rw_paths: Host paths mounted read-write at the same location
             (``--rw``). Validated against the forbidden list.
         ro_paths: Host paths mounted read-only at the same location, for
@@ -121,6 +122,7 @@ class Policy:
     script: Path
     scratch: Path
     net: NetPolicy = NetPolicy.NONE
+    allow_hosts: tuple[str, ...] = ()
     rw_paths: tuple[Path, ...] = ()
     ro_paths: tuple[Path, ...] = ()
     binaries: tuple[Path, ...] = ()
@@ -134,6 +136,9 @@ class Policy:
         """Reject policies that would hand the host to the script."""
         if not self.script.is_absolute() or not self.scratch.is_absolute():
             msg = "script and scratch must be absolute paths"
+            raise PolicyError(msg)
+        if (self.net is NetPolicy.ALLOW) != bool(self.allow_hosts):
+            msg = "allow_hosts and NetPolicy.ALLOW go together"
             raise PolicyError(msg)
         for p in self.rw_paths:
             check_rw_path(p)

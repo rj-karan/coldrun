@@ -47,6 +47,8 @@ if TYPE_CHECKING:
 
 #: Files the pipeline itself keeps in the scratch directory.
 _SCRATCH_META = ".coldrun"
+#: Where installs may connect. shortcut: an ecosystem missing here gets full network
+REGISTRY_HOSTS: dict[str, tuple[str, ...]] = {"pypi": ("pypi.org", "files.pythonhosted.org")}
 _OS_RELEASE = Path("/etc/os-release")
 
 
@@ -81,6 +83,7 @@ class RunOptions:
     source: str
     args: list[str] = field(default_factory=list)
     net: NetPolicy = NetPolicy.NONE
+    allow_hosts: list[str] = field(default_factory=list)
     rw: list[Path] = field(default_factory=list)
     out: Path = Path("./coldrun-out")
     backend: str | None = None
@@ -138,7 +141,7 @@ def decide(
 
     Returns the verdict level from :func:`coldrun.vet.scoring.score`.
     """
-    verdict = score(findings).level
+    verdict = score(findings, opts.allow_hosts).level
     if verdict == "high":
         if not opts.force:
             raise RefusedError(
@@ -232,11 +235,12 @@ def _install(backend: Backend, policy: Policy, runner: Runner, deps: DepSet) -> 
     key = policy.deps_dir.name
     if cache.is_ready(policy.deps_dir):
         return f"{key} (cached)"
-    # Until --allow-host filtering lands (#26) installs get full network.
+    registry_hosts = REGISTRY_HOSTS.get(deps.ecosystem, ())
     install_policy = Policy(
         script=policy.script,
         scratch=policy.scratch,
-        net=NetPolicy.FULL,
+        net=NetPolicy.ALLOW if registry_hosts else NetPolicy.FULL,
+        allow_hosts=registry_hosts,
         ro_paths=policy.ro_paths,
         binaries=policy.binaries,
         deps_dir=policy.deps_dir,
@@ -413,6 +417,7 @@ def _run(opts: RunOptions, console: Console, services: Services, report: Report)
         script=fetched.path,
         scratch=scratch,
         net=opts.net,
+        allow_hosts=tuple(opts.allow_hosts),
         rw_paths=tuple(p.resolve() for p in opts.rw),
         binaries=_host_binaries(runner.install_cmd(deps), argv),
         deps_dir=deps_dir,

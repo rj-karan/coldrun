@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+import http.server
 import os
 import shutil
 import subprocess
+import sys
 import tempfile
-from collections.abc import Callable
+import threading
+from collections.abc import Callable, Iterator
 from pathlib import Path
 
 import pytest
@@ -140,3 +143,70 @@ def test_rw_path_is_writable(run_script: RunScript, tmp_path: Path) -> None:
     )
     assert code == 0, out
     assert (out_dir / "file").read_text() == "got\n"
+
+
+@pytest.fixture
+def local_http() -> Iterator[Callable[[], int]]:
+    """A hello server on the host loopback; returns its port."""
+
+    class Hello(http.server.BaseHTTPRequestHandler):
+        def do_GET(self) -> None:
+            self.send_response(200)
+            self.send_header("Content-Length", "6")
+            self.end_headers()
+            self.wfile.write(b"hello\n")
+
+        def log_message(self, *a: object) -> None:
+            pass
+
+    srv = http.server.HTTPServer(("127.0.0.1", 0), Hello)
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    yield lambda: srv.server_address[1]
+    srv.shutdown()
+
+
+def test_allow_host_reaches_only_the_listed_destination(
+    tmp_path: Path, local_http: Callable[[], int]
+) -> None:
+    if not shutil.which("curl") or not shutil.which("bash"):
+        pytest.skip("curl and bash needed")
+    port = local_http()
+    script = tmp_path / "q" / "probe.sh"
+    script.parent.mkdir()
+    script.write_text(
+        "#!/bin/bash\n"
+        f"curl -sS --max-time 10 http://127.0.0.1:{port}/ok || exit 1\n"  # allowed: reachable
+        f"code=$(curl -s -o /dev/null -w '%{{http_code}}' http://127.0.0.1:{port + 1}/)\n"
+        '[ "$code" = 403 ] || { echo "other port: $code"; exit 2; }\n'  # other host: refused
+        "code=$(curl -s -o /dev/null -w '%{http_code}' http://example.invalid/)\n"
+        '[ "$code" = 403 ] || { echo "dns: $code"; exit 3; }\n'  # no DNS for others
+        "test ! -e /etc/resolv.conf || exit 4\n"
+        f"if timeout 3 bash -c 'exec 3<>/dev/tcp/127.0.0.1/{port}' 2>/dev/null; "
+        "then echo direct connect worked; exit 5; fi\n"  # only the proxy path exists
+    )
+    scratch = tmp_path / "scratch"
+    scratch.mkdir()
+    pol = Policy(
+        script=script, scratch=scratch, net=NetPolicy.ALLOW, allow_hosts=(f"127.0.0.1:{port}",)
+    )
+    out = tmp_path / "out.txt"
+    with out.open("w") as fh, _redirect_stdout(fh):
+        code = BwrapBackend().run(pol, ["/bin/bash", pol.guest_script])
+    assert code == 0, out.read_text()
+    assert out.read_text().startswith("hello")
+
+
+class _redirect_stdout:  # noqa: N801 - tiny fd-level helper
+    """Point fd 1 at a file so the sandboxed script's output can be read back."""
+
+    def __init__(self, fh: object) -> None:
+        self.fh = fh
+
+    def __enter__(self) -> None:
+        sys.stdout.flush()
+        self.saved = os.dup(1)
+        os.dup2(self.fh.fileno(), 1)  # type: ignore[attr-defined]
+
+    def __exit__(self, *a: object) -> None:
+        os.dup2(self.saved, 1)
+        os.close(self.saved)

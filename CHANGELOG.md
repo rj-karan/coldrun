@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `--allow-host HOST[:PORT]` (repeatable, implies `--net allow`): the sandbox keeps its empty network namespace; a host-side proxy on a unix socket, exposed inside as `127.0.0.1:3128` through the standard proxy variables, connects only to the listed destinations and resolves names on the host, so other hosts are refused and get no DNS. Dependency installs now use the same path with the registry hosts only (`pypi.org`, `files.pythonhosted.org`) instead of full network (#26).
+
 ## [0.3.0] - 2026-11-17
 
 Completes milestone M3: scripts and their dependencies are vetted before anything runs. Synthetic exfiltration, persistence and obfuscation samples are refused; benign network tools are not.

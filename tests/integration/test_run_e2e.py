@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import http.server
 import os
 import subprocess
 import sys
+import threading
 from pathlib import Path
 
 import pytest
@@ -97,10 +99,10 @@ def test_unknown_lang_is_a_usage_error(tmp_path: Path, env: dict[str, str]) -> N
     assert "next:" in res.stderr
 
 
-def test_net_allow_is_not_available_yet(tmp_path: Path, env: dict[str, str]) -> None:
-    res = coldrun("run", str(FX / "hello.sh"), "--net", "allow", cwd=tmp_path, env=env)
+def test_net_allow_without_hosts_is_a_usage_error(tmp_path: Path, env: dict[str, str]) -> None:
+    res = coldrun("run", (FX / "hello.sh").as_posix(), "--net", "allow", cwd=tmp_path, env=env)
     assert res.returncode == 2
-    assert "#26" in res.stderr
+    assert "go together" in res.stderr
 
 
 @pytest.mark.parametrize(
@@ -132,3 +134,30 @@ def test_scan_reports_high_without_running(tmp_path: Path, env: dict[str, str]) 
     assert res.returncode == 100, res.stdout + res.stderr
     assert "yara.persistence_shell_rc" in res.stdout and "high" in res.stdout
     assert "sandbox" not in res.stdout and res.stderr == ""
+
+
+def test_allow_host_through_the_cli(tmp_path: Path, env: dict[str, str]) -> None:
+    class Hello(http.server.BaseHTTPRequestHandler):
+        def do_GET(self) -> None:
+            self.send_response(200)
+            self.send_header("Content-Length", "3")
+            self.end_headers()
+            self.wfile.write(b"ok\n")
+
+        def log_message(self, *a: object) -> None:
+            pass
+
+    srv = http.server.HTTPServer(("127.0.0.1", 0), Hello)
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    port = srv.server_address[1]
+    script = tmp_path / "fetch.sh"
+    script.write_text(f"#!/bin/sh\ncurl -sS --max-time 10 http://127.0.0.1:{port}/\n")
+    try:
+        res = coldrun(
+            "run", script.as_posix(), "--allow-host", f"127.0.0.1:{port}", cwd=tmp_path, env=env
+        )
+    finally:
+        srv.shutdown()
+    assert res.returncode == 0, res.stdout + res.stderr
+    assert res.stdout == "ok\n"
+    assert "network except --allow-host destinations" in res.stderr

@@ -85,7 +85,8 @@ after `--` is passed to the script untouched.
 
 | Flag | Default | Meaning |
 |---|---|---|
-| `--net none\|full` | `none` | Network policy inside the sandbox (`allow` with `--allow-host` arrives in v0.4.0) |
+| `--net none\|allow\|full` | `none` | Network policy inside the sandbox |
+| `--allow-host HOST[:PORT]` | none | Permit one destination; repeatable; implies `--net allow`. The sandbox keeps an empty network namespace and reaches the host through a proxy that connects only to the list, so there is no DNS for anything else. Clients must honour `https_proxy` (curl, wget, requests, uv do; raw sockets need `--net full`) |
 | `--rw PATH` | none | Mount one host path read-write; repeatable. `/`, `$HOME` and credential directories are refused |
 | `--out DIR` | `./coldrun-out` | Where files the script writes in `/work` are copied on exit |
 | `--backend bwrap` | auto | Force a sandbox backend (Podman arrives in v1.0.0) |
