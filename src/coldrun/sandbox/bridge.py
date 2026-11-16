@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import contextlib
 import socket
-import subprocess
+import subprocess  # nosemgrep: gitlab.bandit.B404 -- runs the sandboxed command; argv list only
 import sys
 import threading
 
@@ -51,7 +51,8 @@ def main(argv: list[str]) -> int:
     listener.bind(("127.0.0.1", int(port)))
     listener.listen(32)
     threading.Thread(target=_serve, args=(listener, sock_path), daemon=True).start()
-    return subprocess.call(command)  # noqa: S603 - the runner's argv, inside the sandbox
+    # nosemgrep: gitlab.bandit.B603 -- the runner's argv, already inside the sandbox
+    return subprocess.call(command)  # noqa: S603
 
 
 if __name__ == "__main__":  # pragma: no cover - exercised through main() in tests
