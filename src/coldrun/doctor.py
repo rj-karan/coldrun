@@ -157,7 +157,7 @@ def check_semgrep(p: Probes) -> CheckResult:
             "semgrep",
             Status.WARN,
             "not installed; Python scripts are not vetted",
-            engine.INSTALL_HINT,
+            engine.INSTALL_HINT["semgrep"],
         )
     ver = p.version_of([path, "--version"]) or "version unknown"
     return CheckResult("semgrep", Status.PASS, f"{path} ({ver})")
@@ -171,7 +171,7 @@ def check_yara(p: Probes) -> CheckResult:
             "yara",
             Status.WARN,
             "yara-python not installed; scripts are not vetted",
-            engine.INSTALL_HINT,
+            engine.INSTALL_HINT["yara-python"],
         )
     return CheckResult("yara", Status.PASS, f"yara-python {ver}")
 

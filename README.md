@@ -61,8 +61,8 @@ run reuses that environment.
 ## Install
 
 ```
-uv tool install 'coldrun[vet]'   # with the script vetting rules (Semgrep and YARA)
-pipx install 'coldrun[vet]'      # or with pipx
+uv tool install 'coldrun[vet]'   # coldrun with the YARA script rules
+uv tool install semgrep guarddog # Python script rules and dependency vetting
 uvx coldrun --version            # or run without installing (no vetting)
 ```
 

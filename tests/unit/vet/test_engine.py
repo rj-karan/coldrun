@@ -36,7 +36,7 @@ def test_semgrep_errors_crash_and_missing_are_low_findings(
     monkeypatch.setattr(engine, "semgrep_exe", lambda: None)
     (f,) = engine.scan_semgrep(tmp_path / "x")
     assert (f.rule_id, f.severity) == ("semgrep.missing", Severity.LOW)
-    assert engine.INSTALL_HINT in f.message
+    assert "uv tool install semgrep" in f.message
 
 
 def test_semgrep_exe_prefers_coldruns_own_environment(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -68,6 +68,7 @@ def test_yara_missing_is_a_low_finding(tmp_path: Path, monkeypatch: pytest.Monke
     monkeypatch.setattr(engine, "yara", None)
     (f,) = engine.scan_yara(tmp_path / "s.sh")
     assert (f.rule_id, f.severity) == ("yara-python.missing", Severity.LOW)
+    assert "coldrun[vet]" in f.message
     assert engine.yara_version() is None
     monkeypatch.undo()
     assert engine.yara_version()

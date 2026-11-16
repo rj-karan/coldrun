@@ -34,8 +34,9 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-# Script vetting: Semgrep for Python semantics, YARA for text-level rules in any language.
-vet = ["semgrep>=1.90", "yara-python>=4.5"]
+# Script vetting with the YARA rules. Semgrep is an external tool (`uv tool install semgrep`):
+# it pins an old `mcp` with known CVEs, so it stays out of this lock file.
+vet = ["yara-python>=4.5"]
 
 [project.urls]
 Homepage = "https://github.com/rj-karan/coldrun"
@@ -58,7 +59,6 @@ dev = [
   "ruff>=0.8",
   "mypy>=1.13",
   "pre-commit>=4.0",
-  "semgrep>=1.90",
   "yara-python>=4.5",
 ]
 

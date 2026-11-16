@@ -1,9 +1,9 @@
 """Script rules: Semgrep for Python semantics, YARA for text patterns in any language.
 
-Both read the script and nothing more. Semgrep runs as a subprocess with a
-fixed argument list; YARA runs through ``yara-python``. Both come from the
-``vet`` extra and are optional: a missing tool or a failed scan is one low
-finding, so "not vetted" is always visible.
+Both read the script and nothing more. Semgrep is an external tool run as a
+subprocess with a fixed argument list; YARA runs through ``yara-python`` from
+the ``vet`` extra. Both are optional: a missing tool or a failed scan is one
+low finding, so "not vetted" is always visible.
 """
 
 from __future__ import annotations
@@ -23,7 +23,10 @@ except ImportError:  # pragma: no cover - the vet extra is installed for the tes
     yara = None
 
 RULES = Path(__file__).resolve().parent.parent / "rules"
-INSTALL_HINT = "uv tool install 'coldrun[vet]'"
+INSTALL_HINT = {
+    "semgrep": "uv tool install semgrep",
+    "yara-python": "uv tool install 'coldrun[vet]'",
+}
 TIMEOUT = 120
 _SEVERITY = {"low": Severity.LOW, "medium": Severity.MEDIUM, "high": Severity.HIGH}
 
@@ -91,7 +94,7 @@ def scan_yara(path: Path) -> list[Finding]:
 
 
 def _missing(path: Path, tool: str) -> Finding:
-    msg = f"{tool} is not installed, so the script was not vetted. Fix: {INSTALL_HINT}"
+    msg = f"{tool} is not installed, so the script was not vetted. Fix: {INSTALL_HINT[tool]}"
     return Finding(f"{tool}.missing", Severity.LOW, path, msg)
 
 

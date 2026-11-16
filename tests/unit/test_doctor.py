@@ -62,7 +62,7 @@ def test_missing_tools_and_broken_userns(tmp_path: Path) -> None:
     assert by["podman"].status is Status.WARN
     assert by["uv"].status is Status.WARN and "astral.sh" in by["uv"].fix
     assert by["guarddog"].status is Status.WARN and "uv tool install" in by["guarddog"].fix
-    assert by["semgrep"].status is Status.WARN and "coldrun[vet]" in by["semgrep"].fix
+    assert by["semgrep"].status is Status.WARN and "uv tool install semgrep" in by["semgrep"].fix
     assert by["yara"].status is Status.WARN and "coldrun[vet]" in by["yara"].fix
     assert by["python"].status is Status.FAIL and "3.9" in by["python"].detail
     assert doctor.has_failures(results)
