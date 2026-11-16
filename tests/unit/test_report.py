@@ -158,3 +158,11 @@ def test_make_console_variants() -> None:
     assert plain.color_system is None and plain.width == 100
     rich = make_console(stderr=True)
     assert rich.stderr is True
+
+
+def test_blocked_mentions_listen_ports() -> None:
+    assert (
+        default_blocked("none", [4444, 53])[0]
+        == "all network access (inbound allowed on --listen port 4444, 53)"
+    )
+    assert default_blocked("none")[0] == "all network access"

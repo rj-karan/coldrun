@@ -20,6 +20,7 @@ if TYPE_CHECKING:
 WORKDIR = "/work"
 #: Where a cached environment is bound inside the sandbox; excluded from --out.
 DEPS_DIR = f"{WORKDIR}/.coldrun/deps"
+_MAX_PORT = 65535
 #: Exit code the CLI uses when the sandbox itself could not be set up.
 EXIT_SANDBOX_FAILED = 101
 
@@ -106,6 +107,9 @@ class Policy:
             ``--out`` by the pipeline.
         net: Network policy. ``NONE`` by default.
         allow_hosts: ``HOST[:PORT]`` destinations for ``NetPolicy.ALLOW``.
+        listen: Host ports forwarded into the sandbox for callbacks; the
+            script listens on ``127.0.0.1:PORT`` inside. Not with ``FULL``,
+            where the script can bind the port itself.
         rw_paths: Host paths mounted read-write at the same location
             (``--rw``). Validated against the forbidden list.
         ro_paths: Host paths mounted read-only at the same location, for
@@ -126,6 +130,7 @@ class Policy:
     tree: Path | None = None
     net: NetPolicy = NetPolicy.NONE
     allow_hosts: tuple[str, ...] = ()
+    listen: tuple[int, ...] = ()
     rw_paths: tuple[Path, ...] = ()
     ro_paths: tuple[Path, ...] = ()
     binaries: tuple[Path, ...] = ()
@@ -145,6 +150,12 @@ class Policy:
             raise PolicyError(msg)
         if (self.net is NetPolicy.ALLOW) != bool(self.allow_hosts):
             msg = "allow_hosts and NetPolicy.ALLOW go together"
+            raise PolicyError(msg)
+        if self.listen and self.net is NetPolicy.FULL:
+            msg = "listen is pointless with full network: the script can bind the port itself"
+            raise PolicyError(msg)
+        if any(not 0 < port <= _MAX_PORT for port in self.listen):
+            msg = f"listen ports must be 1-65535, got {self.listen}"
             raise PolicyError(msg)
         for p in self.rw_paths:
             check_rw_path(p)

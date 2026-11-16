@@ -84,6 +84,7 @@ class RunOptions:
     args: list[str] = field(default_factory=list)
     net: NetPolicy = NetPolicy.NONE
     allow_hosts: list[str] = field(default_factory=list)
+    listen: list[int] = field(default_factory=list)
     rw: list[Path] = field(default_factory=list)
     out: Path = Path("./coldrun-out")
     backend: str | None = None
@@ -422,6 +423,7 @@ def _run(opts: RunOptions, console: Console, services: Services, report: Report)
         tree=fetched.tree,
         net=opts.net,
         allow_hosts=tuple(opts.allow_hosts),
+        listen=tuple(opts.listen),
         rw_paths=tuple(p.resolve() for p in opts.rw),
         binaries=_host_binaries(runner.install_cmd(deps), runner.run_cmd(fetched.path, [])),
         deps_dir=deps_dir,
@@ -433,7 +435,7 @@ def _run(opts: RunOptions, console: Console, services: Services, report: Report)
     with _stdout_to_stderr() if opts.json else contextlib.nullcontext():
         code = backend.run(policy, argv)
 
-    report.blocked = default_blocked(opts.net.value)  # 8 report
+    report.blocked = default_blocked(opts.net.value, opts.listen)  # 8 report
     mounted = fetched.tree.name if fetched.tree is not None else fetched.path.name
     report.wrote = _collect_outputs(scratch, opts.out, mounted)
     report.out_dir = str(opts.out) if report.wrote else None

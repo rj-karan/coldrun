@@ -115,6 +115,9 @@ def run(
     allow_host: list[str] = typer.Option(
         [], "--allow-host", help="Permit one HOST[:PORT]; repeatable; implies --net allow."
     ),
+    listen: list[int] = typer.Option(
+        [], "--listen", help="Forward one host port into the sandbox for callbacks; repeatable."
+    ),
     rw: list[Path] = typer.Option([], "--rw", help="Mount one host path read-write; repeatable."),
     out: Path = typer.Option(
         Path("./coldrun-out"), "--out", help="Where files the script writes are copied on exit."
@@ -133,11 +136,17 @@ def run(
             "--net allow and --allow-host go together; --net full ignores the list.", err=True
         )
         raise typer.Exit(code=2)
+    if listen and net is NetPolicy.FULL:
+        typer.echo(
+            "--listen is not needed with --net full: the script can bind the port.", err=True
+        )
+        raise typer.Exit(code=2)
     opts = pipeline_mod.RunOptions(
         source=source,
         args=list(ctx.args),
         net=net,
         allow_hosts=allow_host,
+        listen=listen,
         rw=rw,
         out=out,
         backend=backend,

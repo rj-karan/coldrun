@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import os
 import shutil
+import socket
 import subprocess  # nosemgrep: gitlab.bandit.B404 -- spawning bwrap is the point; argv lists only
 import tempfile
 from pathlib import Path
@@ -79,21 +80,43 @@ def _etc_files(net: NetPolicy) -> tuple[str, ...]:
     return files
 
 
-def _allow_net(
-    proxy_sock: Path | None, argv: Sequence[str]
+def _host_listener(port: int) -> socket.socket:
+    """A listening socket on every host interface, handed into the sandbox for ``--listen``."""
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    try:
+        sock.bind(("0.0.0.0", port))  # noqa: S104 - callbacks come from the target
+        sock.listen(16)
+    except OSError as exc:
+        sock.close()
+        raise SandboxError(
+            f"cannot listen on host port {port}: {exc.strerror}.", "Pick another --listen port."
+        ) from exc
+    return sock
+
+
+def _bridge(
+    policy: Policy, proxy_sock: Path | None, listen_fds: Mapping[int, int], argv: Sequence[str]
 ) -> tuple[list[str], dict[str, str], list[str]]:
-    """Mounts, proxy variables and the bridge-wrapped argv for ``NetPolicy.ALLOW``."""
-    if proxy_sock is None:
-        msg = "NetPolicy.ALLOW needs the proxy socket"
-        raise SandboxError(msg, "This is a coldrun bug; please open an issue.")
-    # The socket needs a writable mount to connect(); the bridge is our own code.
-    cmd = ["--bind", str(proxy_sock.parent), _GUEST_SOCK_DIR]
-    cmd += ["--ro-bind", str(Path(bridge.__file__).resolve()), _GUEST_BRIDGE]
-    url = f"http://127.0.0.1:{GUEST_PORT}"
-    env = dict.fromkeys(("http_proxy", "https_proxy", "HTTP_PROXY", "HTTPS_PROXY"), url)
-    guest_sock = f"{_GUEST_SOCK_DIR}/{proxy_sock.name}"
-    wrapped = [_GUEST_PYTHON, _GUEST_BRIDGE, str(GUEST_PORT), guest_sock, "--", *argv]
-    return cmd, env, wrapped
+    """Mounts, proxy variables and the bridge-wrapped argv for allow-net and listen."""
+    cmd = ["--ro-bind", str(Path(bridge.__file__).resolve()), _GUEST_BRIDGE]
+    env: dict[str, str] = {}
+    opts: list[str] = []
+    if policy.net == NetPolicy.ALLOW:
+        if proxy_sock is None:
+            msg = "NetPolicy.ALLOW needs the proxy socket"
+            raise SandboxError(msg, "This is a coldrun bug; please open an issue.")
+        # The socket needs a writable mount to connect(); the bridge is our own code.
+        cmd += ["--bind", str(proxy_sock.parent), _GUEST_SOCK_DIR]
+        url = f"http://127.0.0.1:{GUEST_PORT}"
+        env = dict.fromkeys(("http_proxy", "https_proxy", "HTTP_PROXY", "HTTPS_PROXY"), url)
+        opts += ["--proxy", f"{GUEST_PORT}:{_GUEST_SOCK_DIR}/{proxy_sock.name}"]
+    for port in policy.listen:
+        if port not in listen_fds:
+            msg = f"listen port {port} has no host socket"
+            raise SandboxError(msg, "This is a coldrun bug; please open an issue.")
+        opts += ["--listen", f"{listen_fds[port]}:{port}"]
+    return cmd, env, [_GUEST_PYTHON, _GUEST_BRIDGE, *opts, "--", *argv]
 
 
 def tiocsti_is_blocked() -> bool:
@@ -188,6 +211,7 @@ class BwrapBackend:
         *,
         tiocsti_blocked: bool | None = None,
         proxy_sock: Path | None = None,
+        listen_fds: Mapping[int, int] | None = None,
     ) -> list[str]:
         """Translate ``policy`` into a ``bwrap`` argument list.
 
@@ -198,6 +222,8 @@ class BwrapBackend:
             proxy_sock: The host-side allowlist proxy socket; required for
                 ``NetPolicy.ALLOW``. The sandbox reaches it through the
                 bridge on ``127.0.0.1`` and the usual proxy variables.
+            listen_fds: ``{port: fd}`` of listening sockets the host opened
+                for ``policy.listen``; the bridge accepts on them inside.
         """
         bwrap = self.executable or "bwrap"
         blocked = tiocsti_is_blocked() if tiocsti_blocked is None else tiocsti_blocked
@@ -236,8 +262,8 @@ class BwrapBackend:
             mode = "--bind" if policy.deps_writable else "--ro-bind"
             cmd += [mode, str(policy.deps_dir), DEPS_DIR]
         extra_env = dict(policy.env)
-        if policy.net == NetPolicy.ALLOW:
-            net_cmd, net_env, argv = _allow_net(proxy_sock, argv)
+        if policy.net == NetPolicy.ALLOW or policy.listen:
+            net_cmd, net_env, argv = _bridge(policy, proxy_sock, listen_fds or {}, argv)
             cmd += net_cmd
             extra_env |= net_env
         # Everything not bound above lives on bwrap's root tmpfs; freeze it.
@@ -281,22 +307,32 @@ class BwrapBackend:
     def run(self, policy: Policy, argv: Sequence[str]) -> int:
         """Probe, then run with stdin, stdout and stderr inherited."""
         self.probe()
-        if policy.net != NetPolicy.ALLOW:
+        if policy.net != NetPolicy.ALLOW and not policy.listen:
             return self._exec(self.command(policy, argv))
         if not Path(_GUEST_PYTHON).exists():
             raise SandboxError(
-                f"--allow-host needs {_GUEST_PYTHON} on the host for the in-sandbox bridge.",
+                f"--allow-host and --listen need {_GUEST_PYTHON} on the host for the bridge.",
                 "Install python3 from your distribution, or use --net full.",
             )
         with tempfile.TemporaryDirectory(prefix="coldrun-net-") as sock_dir:
-            proxy = AllowProxy(policy.allow_hosts, Path(sock_dir)).start()
+            proxy = None
+            if policy.net == NetPolicy.ALLOW:
+                proxy = AllowProxy(policy.allow_hosts, Path(sock_dir)).start()
+            listeners = [_host_listener(port) for port in policy.listen]
+            fds = {port: sock.fileno() for port, sock in zip(policy.listen, listeners, strict=True)}
             try:
-                return self._exec(self.command(policy, argv, proxy_sock=proxy.path))
+                cmd = self.command(
+                    policy, argv, proxy_sock=proxy.path if proxy else None, listen_fds=fds
+                )
+                return self._exec(cmd, pass_fds=tuple(fds.values()))
             finally:
-                proxy.stop()
+                if proxy:
+                    proxy.stop()
+                for sock in listeners:
+                    sock.close()
 
-    def _exec(self, cmd: list[str]) -> int:
+    def _exec(self, cmd: list[str], pass_fds: tuple[int, ...] = ()) -> int:
         try:
-            return subprocess.run(cmd, check=False).returncode  # noqa: S603 - argv built by command()
+            return subprocess.run(cmd, check=False, pass_fds=pass_fds).returncode  # noqa: S603
         except OSError as exc:
             raise SandboxError(f"could not start bubblewrap: {exc}.", _DOCTOR) from exc

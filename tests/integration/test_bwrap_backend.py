@@ -5,10 +5,12 @@ from __future__ import annotations
 import http.server
 import os
 import shutil
+import socket
 import subprocess
 import sys
 import tempfile
 import threading
+import time
 from collections.abc import Callable, Iterator
 from pathlib import Path
 
@@ -210,3 +212,48 @@ class _redirect_stdout:  # noqa: N801 - tiny fd-level helper
     def __exit__(self, *a: object) -> None:
         os.dup2(self.saved, 1)
         os.close(self.saved)
+
+
+def test_listen_delivers_a_host_callback_inside(tmp_path: Path) -> None:
+    free = socket.socket()
+    free.bind(("127.0.0.1", 0))
+    port = free.getsockname()[1]
+    free.close()
+    script = tmp_path / "q" / "catch.py"
+    script.parent.mkdir()
+    script.write_text(
+        "import socket\n"
+        "s = socket.socket()\n"
+        f"s.bind(('127.0.0.1', {port}))\n"
+        "s.listen(1)\n"
+        "c, _ = s.accept()\n"
+        "data = c.recv(100)\n"
+        "c.sendall(b'ack ' + data)\n"
+        "print('callback:', data.decode())\n"
+    )
+    scratch = tmp_path / "scratch"
+    scratch.mkdir()
+    pol = Policy(script=script, scratch=scratch, listen=(port,))
+    out = tmp_path / "out.txt"
+    result: list[int] = []
+
+    def run() -> None:
+        with out.open("w") as fh, _redirect_stdout(fh):
+            result.append(BwrapBackend().run(pol, ["/usr/bin/python3", pol.guest_script]))
+
+    t = threading.Thread(target=run)
+    t.start()
+    reply = b""
+    for _ in range(100):  # the script needs a moment to start listening inside
+        try:
+            with socket.create_connection(("127.0.0.1", port), timeout=2) as c:
+                c.sendall(b"shell")
+                reply = c.recv(100)
+            if reply:
+                break
+        except OSError:
+            pass
+        time.sleep(0.1)
+    t.join(timeout=30)
+    assert reply == b"ack shell"
+    assert result == [0] and "callback: shell" in out.read_text()

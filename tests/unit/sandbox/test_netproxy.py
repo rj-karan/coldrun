@@ -143,15 +143,16 @@ def test_bridge_exposes_socket_as_tcp_and_passes_exit_code(
         "sys.exit(7 if r.status == 200 else 1)\n"
     )
     # in-process, so the listener thread is covered; the script is a child like in the sandbox
-    code = bridge.main([str(tcp_port), str(proxy.path), "--", sys.executable, "-c", script])
+    code = bridge.main(["--proxy", f"{tcp_port}:{proxy.path}", "--", sys.executable, "-c", script])
     assert code == 7
     assert "hello /b" in capfd.readouterr().out
-    assert bridge.main(["1", "x", "nope"]) == 2
+    with pytest.raises(SystemExit):
+        bridge.main(["--proxy", "1:x"])  # no command
 
 
 def test_bridge_closes_clients_when_the_socket_is_gone(tmp_path: Path) -> None:
     tcp_port = free_port()
-    code = bridge.main([str(tcp_port), str(tmp_path / "missing.sock"), "--", "true"])
+    code = bridge.main(["--proxy", f"{tcp_port}:{tmp_path / 'missing.sock'}", "--", "true"])
     assert code == 0
     with socket.create_connection(("127.0.0.1", tcp_port), timeout=5) as s:
         assert s.recv(10) == b""
@@ -167,3 +168,35 @@ def test_slow_client_and_dead_sockets(
     a.close()
     b.close()
     netproxy.pump(a, b)  # both sides already closed: returns quietly
+
+
+def test_bridge_forwards_an_inherited_listener_to_the_inside_port() -> None:
+    inside_port = free_port()
+    inside = socket.socket()
+    inside.bind(("127.0.0.1", inside_port))  # stands in for the script's listener
+    inside.listen(1)
+
+    def answer() -> None:
+        c, _ = inside.accept()
+        with c:
+            c.sendall(b"got " + c.recv(100))
+
+    threading.Thread(target=answer, daemon=True).start()
+    host = socket.socket()  # the socket the backend opens and hands over as an fd
+    host.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    host.bind(("127.0.0.1", 0))
+    host.listen(1)
+    host_port = host.getsockname()[1]
+    assert bridge.main(["--listen", f"{host.fileno()}:{inside_port}", "--", "true"]) == 0
+    with socket.create_connection(("127.0.0.1", host_port), timeout=5) as c:
+        c.sendall(b"callback")
+        c.shutdown(socket.SHUT_WR)
+        assert c.recv(100) == b"got callback"
+    # nobody listening inside: the callback is dropped, the bridge keeps serving
+    dead_port = free_port()
+    host2 = socket.socket()
+    host2.bind(("127.0.0.1", 0))
+    host2.listen(1)
+    assert bridge.main(["--listen", f"{host2.fileno()}:{dead_port}", "--", "true"]) == 0
+    with socket.create_connection(("127.0.0.1", host2.getsockname()[1]), timeout=5) as c:
+        assert c.recv(10) == b""
