@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Bash runner: commands the script invokes are resolved as system binaries; a missing one stops the run with exit 102 and the exact `pacman -S` or `apt install` line from a command-to-package table (#17).
+
+### Added
+
 - Python 3 runner: dependencies from a PEP 723 block, a `requirements.txt` beside the script, or third-party imports inferred with `ast` (stdlib and local modules excluded, common import-to-distribution names mapped); installed with `uv pip install --target` inside the sandbox and run with the host `python3`. Host executables outside `/usr` that a runner needs (uv) are exposed read-only as `/usr/local/bin/<name>` (#16).
 
 ## [0.1.1] - 2026-11-12
