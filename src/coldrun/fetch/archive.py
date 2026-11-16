@@ -196,7 +196,8 @@ def _extract_tar(tf: tarfile.TarFile, tree: Path) -> None:
             path.mkdir(exist_ok=True)
         elif m.isfile():
             src = tf.extractfile(m)
-            assert src is not None  # noqa: S101 - isfile() guarantees it
+            if src is None:  # pragma: no cover - isfile() guarantees a stream
+                continue
             with src, path.open("wb") as dst:
                 shutil.copyfileobj(src, dst, _CHUNK)
             path.chmod(0o755 if m.mode & stat.S_IXUSR else 0o644)
