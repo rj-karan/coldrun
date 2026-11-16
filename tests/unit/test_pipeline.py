@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import io
+import shutil
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -285,6 +286,32 @@ def test_run_options_tty_default(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("sys.stdin", io.StringIO())
     assert RunOptions(source="x").is_tty() is False
     assert RunOptions(source="x", tty=True).is_tty() is True
+
+
+def test_host_binaries_outside_usr_are_bound(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    home_uv = tmp_path / "uv"
+    table = {"uv": str(home_uv), "python3": "/usr/bin/python3"}
+    monkeypatch.setattr(shutil, "which", table.get)
+    # env prefixes are skipped; /usr programs, absolute and relative heads are left alone
+    found = pipeline._host_binaries(
+        ["/usr/bin/env", "X=1", "uv"], ["uv", "pip"], ["python3"], [], ["./local"], ["/opt/x"]
+    )
+    assert found == (home_uv,)
+
+
+def test_binaries_reach_both_install_and_run_policies(
+    script: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    home_uv = tmp_path / "uv"
+    monkeypatch.setattr(shutil, "which", lambda name: str(home_uv) if name == "uv" else None)
+    runner = VettingRunner(install=["uv", "pip", "install", "x"])
+    backend = FakeBackend(codes=[0, 0])
+    con, _ = console()
+    opts = RunOptions(source=str(script), out=tmp_path / "o", tty=False)
+    assert pipeline.run(opts, con, Services(registry(runner), {"fake": backend})) == 0
+    assert [p.binaries for p, _ in backend.runs] == [(home_uv,), (home_uv,)]
 
 
 def test_error_classes_carry_exit_codes() -> None:

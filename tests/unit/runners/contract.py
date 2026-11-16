@@ -25,7 +25,7 @@ class RunnerContract:
 
     runner: Runner
     fixtures: list[Path]
-    unrelated: Path = Path(__file__)  # this .py file is never a runner's own type
+    unrelated: Path = Path(__file__).parents[2] / "fixtures" / "detect" / "fake_elf.bin"
 
     def test_satisfies_protocol(self) -> None:
         assert isinstance(self.runner, Runner)

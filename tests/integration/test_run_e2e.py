@@ -61,6 +61,17 @@ def test_args_exit_code_and_outputs(tmp_path: Path, env: dict[str, str]) -> None
     assert "result.txt" in res.stderr
 
 
+def test_python_script_with_three_imports_installs_and_runs(
+    tmp_path: Path, env: dict[str, str]
+) -> None:
+    fixture = FX.parent / "python" / "imports.py"
+    res = coldrun("run", fixture.as_posix(), cwd=tmp_path, env=env)
+    assert res.returncode == 0, res.stdout + res.stderr
+    assert "imports ok requests yaml BeautifulSoup" in res.stdout
+    assert "PyYAML, beautifulsoup4, requests" in res.stderr
+    assert not (tmp_path / "coldrun-out").exists()  # deps dir is not an output
+
+
 def test_unknown_lang_is_a_usage_error(tmp_path: Path, env: dict[str, str]) -> None:
     res = coldrun("run", str(FX / "hello.sh"), "--lang", "cobol", cwd=tmp_path, env=env)
     assert res.returncode == 2
