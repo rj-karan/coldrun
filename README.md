@@ -60,12 +60,19 @@ Network off unless you ask. Environment scrubbed to an allowlist.
 The script's own exit code, except `100` (refused by vetting), `101` (sandbox could
 not be set up; run `coldrun doctor`) and `102` (dependency resolution failed).
 
+### Runners
+
+| Runner | Dependencies from | Installed with |
+|---|---|---|
+| Python 3 | PEP 723 block, `requirements.txt` beside the script, else imports parsed with `ast` | uv, once per dependency set, cached under `~/.cache/coldrun/envs` |
+| Bash / sh | Commands the script invokes | Nothing; missing tools are reported with the `pacman` or `apt` line |
+
 ## Status
 
-v0.1.1 completes milestone M1 of the [spec](docs/SPEC.md): shell scripts run
-sandboxed. Dependency resolution for Python and Bash (M2), vetting with
-Semgrep, YARA and GuardDog (M3), `--allow-host` and GitHub/gist/exploit-db
-sources (M4), and Podman plus more runners (M5) follow.
+v0.2.0 completes milestone M2 of the [spec](docs/SPEC.md): Python and Bash
+scripts run sandboxed with their dependencies resolved. Vetting with Semgrep,
+YARA and GuardDog (M3), `--allow-host` and GitHub/gist/exploit-db sources
+(M4), and Podman plus more runners (M5) follow.
 
 ## Licence
 
