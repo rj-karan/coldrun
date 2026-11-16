@@ -29,7 +29,7 @@ def probes(tmp_path: Path, **kw: object) -> Probes:
 def test_all_green(tmp_path: Path) -> None:
     results = doctor.run_checks(probes(tmp_path))
     assert [r.name for r in results] == [
-        "python", "bubblewrap", "user namespaces", "TIOCSTI", "podman", "uv", "cache",
+        "python", "bubblewrap", "user namespaces", "TIOCSTI", "podman", "uv", "guarddog", "cache",
     ]  # fmt: skip
     assert all(r.status is Status.PASS for r in results)
     assert "bwrap 9.9" in results[1].detail
@@ -38,7 +38,7 @@ def test_all_green(tmp_path: Path) -> None:
 
 
 def test_missing_tools_and_broken_userns(tmp_path: Path) -> None:
-    missing = {"bwrap", "podman", "uv"}
+    missing = {"bwrap", "podman", "uv", "guarddog"}
     results = doctor.run_checks(
         probes(
             tmp_path,
@@ -56,6 +56,7 @@ def test_missing_tools_and_broken_userns(tmp_path: Path) -> None:
     assert by["TIOCSTI"].status is Status.WARN and "legacy_tiocsti" in by["TIOCSTI"].fix
     assert by["podman"].status is Status.WARN
     assert by["uv"].status is Status.WARN and "astral.sh" in by["uv"].fix
+    assert by["guarddog"].status is Status.WARN and "uv tool install" in by["guarddog"].fix
     assert by["python"].status is Status.FAIL and "3.9" in by["python"].detail
     assert doctor.has_failures(results)
 

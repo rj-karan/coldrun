@@ -136,9 +136,16 @@ def test_install_runs_with_network_and_failure_is_102(script: Path, tmp_path: Pa
     runner = VettingRunner(install=["pip", "install", "x"])
     backend = FakeBackend(codes=[0, 0])
     con, buf = console()
-    svc = Services(registry(runner), {"fake": backend})
+    scanned: list[DepSet] = []
+
+    def scan(d: DepSet) -> list[Finding]:
+        scanned.append(d)
+        return []
+
+    svc = Services(registry(runner), {"fake": backend}, scan_deps=scan)
     code = pipeline.run(RunOptions(source=str(script), out=tmp_path / "o", tty=False), con, svc)
     assert code == 0
+    assert len(scanned) == 1  # deps are vetted before the install
     install_policy, install_argv = backend.runs[0]
     assert install_argv == ["pip", "install", "x"]
     assert install_policy.net is NetPolicy.FULL
@@ -151,11 +158,12 @@ def test_install_runs_with_network_and_failure_is_102(script: Path, tmp_path: Pa
     # second run: the environment is cached, so only the script runs
     backend = FakeBackend(codes=[0])
     con, buf = console()
-    svc = Services(registry(runner), {"fake": backend})
+    svc = Services(registry(runner), {"fake": backend}, scan_deps=scan)
     assert (
         pipeline.run(RunOptions(source=str(script), out=tmp_path / "o", tty=False), con, svc) == 0
     )
     assert len(backend.runs) == 1
+    assert len(scanned) == 1  # a cached env is not rescanned
     assert "(cached)" in buf.getvalue()
 
     cache.clean()  # forget the environment so the install runs again and fails

@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- GuardDog dependency vetting: every resolved PyPI, npm, Go, RubyGems or crates package is scanned before install; GuardDog's package risk label sets the severity (no risks: info, low, suspicious: medium, high_risk: high), install hooks are at least medium, plain capability hits are hidden, and a PyPI release older than 30 days is capped at low; a missing or failed scan is a low finding. `coldrun doctor` reports guarddog (#21).
 - Risk score model: `vet.scoring.score` folds findings into a low, medium or high verdict with reasons; findings about hosts in `--allow-host` are dropped, any other hardcoded host is always surfaced (#20).
 
 ## [0.2.0] - 2026-11-16
