@@ -124,3 +124,11 @@ def test_benign_network_script_is_not_refused(tmp_path: Path, env: dict[str, str
     res = coldrun("run", sample.as_posix(), cwd=tmp_path, env=env)
     assert res.returncode != 100, res.stdout + res.stderr  # curl fails offline, vetting lets it run
     assert "verdict       low" in res.stderr
+
+
+def test_scan_reports_high_without_running(tmp_path: Path, env: dict[str, str]) -> None:
+    sample = FX.parent / "vet" / "yara" / "persistence_shell_rc.match.sh"
+    res = coldrun("scan", sample.as_posix(), cwd=tmp_path, env=env)
+    assert res.returncode == 100, res.stdout + res.stderr
+    assert "yara.persistence_shell_rc" in res.stdout and "high" in res.stdout
+    assert "sandbox" not in res.stdout and res.stderr == ""

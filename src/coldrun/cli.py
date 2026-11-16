@@ -80,6 +80,15 @@ def deps(
 
 
 @app.command()
+def scan(
+    source: str = typer.Argument(..., help="Local path, http(s) URL or GitHub blob URL."),
+    lang: str | None = typer.Option(None, "--lang", help="Override type detection."),
+) -> None:
+    """Vet SOURCE and print the findings and verdict without building a sandbox or running it."""
+    raise typer.Exit(code=pipeline_mod.scan(source, lang, make_console()))
+
+
+@app.command()
 def doctor() -> None:
     """Check bwrap, podman, uv and kernel support, and say how to fix what is missing."""
     results = doctor_mod.run_checks()

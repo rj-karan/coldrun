@@ -358,3 +358,32 @@ def test_deps_command_resolves_without_running(script: Path) -> None:
 def test_error_classes_carry_exit_codes() -> None:
     assert DepsError("a", "b").exit_code == 102
     assert RefusedError("a", "b").exit_code == 100
+
+
+def test_scan_vets_without_building_or_running(script: Path) -> None:
+    backend = FakeBackend()
+    runner = VettingRunner([finding(Severity.HIGH)], install=["pip", "install", "x"])
+    scanned: list[DepSet] = []
+
+    def scan_deps(d: DepSet) -> list[Finding]:
+        scanned.append(d)
+        return [finding(Severity.LOW)]
+
+    con, buf = console()
+    svc = Services(registry(runner), {"fake": backend}, scan_deps=scan_deps)
+    assert pipeline.scan(str(script), None, con, svc) == 100
+    assert backend.runs == [] and len(scanned) == 1
+    out = buf.getvalue()
+    assert "verdict" in out and "high" in out and "sandbox" not in out
+    assert "refusing" not in out  # scan reports, it does not refuse
+
+    con, buf = console()
+    svc = Services(registry(VettingRunner([])), {"fake": backend}, scan_deps=scan_deps)
+    assert pipeline.scan(str(script), None, con, svc) == 0
+    assert "verdict       low" in buf.getvalue()
+
+
+def test_scan_errors_use_the_usual_exit_codes() -> None:
+    con, buf = console()
+    assert pipeline.scan("/nope/x.sh", None, con, Services(registry(), {})) == 2
+    assert "exit code" in buf.getvalue()
