@@ -106,7 +106,7 @@ def test_net_allow_is_not_available_yet(tmp_path: Path, env: dict[str, str]) -> 
 @pytest.mark.parametrize(
     "sample",
     [
-        "yara/persistence_cron.match.sh",
+        "yara/persistence_shell_rc.match.sh",
         "yara/obfuscated_shell.match.sh",
         "semgrep/py-exec-decoded.match.py",
     ],
