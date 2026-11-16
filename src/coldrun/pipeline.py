@@ -21,10 +21,11 @@ from coldrun.runners.registry import Registry, default_registry
 from coldrun.runners.shell import package_for
 from coldrun.sandbox import BwrapBackend, NetPolicy, Policy, SandboxError
 from coldrun.sandbox.base import WORKDIR
+from coldrun.vet import guarddog
 from coldrun.vet.scoring import score
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
+    from collections.abc import Callable, Sequence
 
     from rich.console import Console
 
@@ -90,6 +91,7 @@ class Services:
     registry: Registry = field(default_factory=default_registry)
     backends: dict[str, Backend] = field(default_factory=lambda: {"bwrap": BwrapBackend()})
     confirm: object = None  # Callable[[str], bool]; None means ask on the terminal
+    scan_deps: Callable[[DepSet], list[Finding]] = guarddog.scan_deps
 
 
 def choose_backend(name: str | None, backends: dict[str, Backend]) -> Backend:
@@ -316,7 +318,11 @@ def _run(opts: RunOptions, console: Console, services: Services, report: Report)
     runner = detection.runner
     deps = _resolve(runner, fetched.path)  # 3 resolve
     report.deps = deps
-    findings = list(runner.vet(fetched.path, deps))  # 4 vet (engine lands in M3)
+    deps_dir = cache.env_dir(runner.name, deps) if runner.install_cmd(deps) else None
+    findings = list(runner.vet(fetched.path, deps))  # 4 vet
+    # shortcut: a cached env was vetted when it was installed; `coldrun scan` (#24) rescans
+    if deps_dir is None or not cache.is_ready(deps_dir):
+        findings += services.scan_deps(deps)
     report.findings = findings
     report.verdict = decide(findings, opts, services, console)  # 5 decide
 
@@ -331,7 +337,7 @@ def _run(opts: RunOptions, console: Console, services: Services, report: Report)
         net=opts.net,
         rw_paths=tuple(p.resolve() for p in opts.rw),
         binaries=_host_binaries(runner.install_cmd(deps), argv),
-        deps_dir=cache.env_dir(runner.name, deps) if runner.install_cmd(deps) else None,
+        deps_dir=deps_dir,
         tty=opts.is_tty(),
     )
     report.env = _install(backend, policy, runner, deps)

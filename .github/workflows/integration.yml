@@ -59,5 +59,10 @@ jobs:
 
       - run: uv sync
 
+      - name: Install guarddog for the dependency vetting tests
+        run: |
+          uv tool install guarddog
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
       - name: Sandbox and end-to-end tests
         run: uv run pytest -m "sandbox or e2e" -v

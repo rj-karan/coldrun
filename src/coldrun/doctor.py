@@ -1,4 +1,4 @@
-"""``coldrun doctor``: check bwrap, podman, uv and kernel support.
+"""``coldrun doctor``: check bwrap, podman, uv, guarddog and kernel support.
 
 Each check is a small function that returns a :class:`CheckResult` with the
 fix for its failure, so the output tells the user exactly what to run next.
@@ -20,6 +20,7 @@ from rich.text import Text
 
 from coldrun.config import cache_dir
 from coldrun.sandbox import bwrap as bw
+from coldrun.vet.guarddog import INSTALL_HINT
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -134,6 +135,17 @@ def check_uv(p: Probes) -> CheckResult:
     return CheckResult("uv", Status.PASS, f"{path} ({ver})")
 
 
+def check_guarddog(p: Probes) -> CheckResult:
+    """GuardDog vets dependencies; without it they run unvetted."""
+    path = p.which("guarddog")
+    if path is None:
+        return CheckResult(
+            "guarddog", Status.WARN, "not installed; dependencies are not vetted", INSTALL_HINT
+        )
+    ver = p.version_of([path, "--version"]) or "version unknown"
+    return CheckResult("guarddog", Status.PASS, f"{path} ({ver})")
+
+
 def check_python(p: Probes) -> CheckResult:
     """Python is new enough for coldrun itself."""
     ver = ".".join(map(str, p.python_version))
@@ -166,6 +178,7 @@ CHECKS: tuple[Callable[[Probes], CheckResult], ...] = (
     check_tiocsti,
     check_podman,
     check_uv,
+    check_guarddog,
     check_cache,
 )
 
