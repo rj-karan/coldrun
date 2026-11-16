@@ -49,6 +49,8 @@ class Fetched:
         sha256: Hex digest of the file contents.
         size: Size in bytes.
         fetched_at: UTC timestamp in ISO 8601.
+        root: The quarantine directory when the file sits deeper inside it,
+            as an entry script extracted from an archive does.
     """
 
     kind: str
@@ -57,16 +59,23 @@ class Fetched:
     sha256: str
     size: int
     fetched_at: str
+    root: Path | None = None
 
     @property
     def quarantine(self) -> Path:
-        """The directory holding the file and its ``source.json``."""
-        return self.path.parent
+        """The directory holding ``source.json``, the scratch space and the file or tree."""
+        return self.root if self.root is not None else self.path.parent
+
+    @property
+    def tree(self) -> Path | None:
+        """The extracted archive the file came out of, or ``None`` for a lone file."""
+        return self.root / "src" if self.root is not None else None
 
     def to_json(self) -> str:
         """Serialise for ``source.json``."""
         data = asdict(self)
         data["path"] = str(self.path)
+        data["root"] = str(self.quarantine)
         return json.dumps(data, indent=2, sort_keys=True) + "\n"
 
 
@@ -115,7 +124,7 @@ def new_quarantine(root: Path) -> Path:
     return path
 
 
-def seal(kind: str, origin: str, file: Path) -> Fetched:
+def seal(kind: str, origin: str, file: Path, root: Path | None = None) -> Fetched:
     """Hash the fetched file, make it read-only and write ``source.json``."""
     size = file.stat().st_size
     if size > MAX_SOURCE_BYTES:
@@ -132,6 +141,7 @@ def seal(kind: str, origin: str, file: Path) -> Fetched:
         sha256=sha256_of(file),
         size=size,
         fetched_at=datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        root=root,
     )
-    (file.parent / "source.json").write_text(record.to_json())
+    (record.quarantine / "source.json").write_text(record.to_json())
     return record

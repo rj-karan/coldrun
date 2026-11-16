@@ -80,8 +80,10 @@ coldrun doctor                                # check bwrap, user namespaces, uv
 coldrun cache list | clean                    # cached dependency environments
 ```
 
-`SOURCE` is a local path, an `http(s)` URL or a GitHub `blob` URL. Everything
-after `--` is passed to the script untouched.
+`SOURCE` is a local path, an `http(s)` URL or a GitHub `blob` URL. A tar or zip
+is extracted with traversal and link checks and the one script at its top runs with
+its siblings visible read-only under `/work/src`. Everything after `--` is passed to
+the script untouched.
 
 | Flag | Default | Meaning |
 |---|---|---|

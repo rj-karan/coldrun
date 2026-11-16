@@ -98,7 +98,9 @@ class Policy:
 
     Attributes:
         script: The quarantined file to run. Mounted read-only at
-            ``/work/<name>``.
+            ``/work/<name>``, or inside ``tree`` when it came from one.
+        tree: The extracted archive the script sits in, mounted read-only at
+            ``/work/<tree name>`` so its sibling files are visible.
         scratch: Private host directory mounted read-write at ``/work``; the
             script's cwd. Files it writes land here and are copied to
             ``--out`` by the pipeline.
@@ -121,6 +123,7 @@ class Policy:
 
     script: Path
     scratch: Path
+    tree: Path | None = None
     net: NetPolicy = NetPolicy.NONE
     allow_hosts: tuple[str, ...] = ()
     rw_paths: tuple[Path, ...] = ()
@@ -137,6 +140,9 @@ class Policy:
         if not self.script.is_absolute() or not self.scratch.is_absolute():
             msg = "script and scratch must be absolute paths"
             raise PolicyError(msg)
+        if self.tree is not None and not self.script.is_relative_to(self.tree):
+            msg = f"script {self.script} is not inside its tree {self.tree}"
+            raise PolicyError(msg)
         if (self.net is NetPolicy.ALLOW) != bool(self.allow_hosts):
             msg = "allow_hosts and NetPolicy.ALLOW go together"
             raise PolicyError(msg)
@@ -151,6 +157,8 @@ class Policy:
     @property
     def guest_script(self) -> str:
         """Where the script appears inside the sandbox."""
+        if self.tree is not None:
+            return f"{WORKDIR}/{self.tree.name}/{self.script.relative_to(self.tree).as_posix()}"
         return f"{WORKDIR}/{self.script.name}"
 
 

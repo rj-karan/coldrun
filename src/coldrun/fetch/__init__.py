@@ -12,6 +12,7 @@ import urllib.parse
 from typing import TYPE_CHECKING
 
 from coldrun.config import quarantine_root
+from coldrun.fetch import archive
 from coldrun.fetch.base import (
     MAX_SOURCE_BYTES,
     Fetched,
@@ -51,7 +52,7 @@ def _pick(spec: str, fetchers: Sequence[Fetcher]) -> Fetcher:
     scheme = urllib.parse.urlsplit(spec).scheme or "that"
     raise FetchError(
         f"No fetcher understands {spec!r} ({scheme} is not supported).",
-        "Use a local path, an http(s) URL, or a GitHub blob URL.",
+        "Use a local path or archive, an http(s) URL, or a GitHub blob URL.",
     )
 
 
@@ -76,6 +77,10 @@ def fetch(
     qdir = new_quarantine(root if root is not None else quarantine_root())
     try:
         file = fetcher.fetch(spec, qdir)
+        if archive.is_archive(file):
+            entry = archive.unpack(file, qdir)
+            file.unlink()
+            return seal(fetcher.kind, spec, entry, root=qdir)
         return seal(fetcher.kind, spec, file)
     except BaseException:
         shutil.rmtree(qdir, ignore_errors=True)

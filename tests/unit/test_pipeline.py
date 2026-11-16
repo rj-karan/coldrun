@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import io
 import shutil
+import zipfile
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -399,3 +400,20 @@ def test_pypi_installs_reach_only_the_registry(script: Path, tmp_path: Path) -> 
     install_policy = backend.runs[0][0]
     assert install_policy.net is NetPolicy.ALLOW
     assert install_policy.allow_hosts == ("pypi.org", "files.pythonhosted.org")
+
+
+def test_archive_source_runs_from_its_tree(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path / "cache"))
+    with zipfile.ZipFile(tmp_path / "tool.zip", "w") as zf:
+        zf.writestr("tool/run.sh", "#!/bin/sh\necho hi\n")
+        zf.writestr("tool/lib/helper.sh", "echo helper\n")
+    backend = FakeBackend()
+    con, buf = console()
+    svc = Services(registry(ShellRunner()), {"fake": backend})
+    opts = RunOptions(source=str(tmp_path / "tool.zip"), out=tmp_path / "o", tty=False)
+    assert pipeline.run(opts, con, svc) == 0
+    policy, argv = backend.runs[0]
+    assert policy.tree is not None and policy.tree.name == "src"
+    assert argv[-1] == "/work/src/tool/run.sh"
+    assert (policy.tree / "tool" / "lib" / "helper.sh").exists()
+    assert "src/" not in buf.getvalue()  # the mounted tree's placeholder is not an output

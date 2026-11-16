@@ -7,6 +7,7 @@ import os
 import subprocess
 import sys
 import threading
+import zipfile
 from pathlib import Path
 
 import pytest
@@ -161,3 +162,13 @@ def test_allow_host_through_the_cli(tmp_path: Path, env: dict[str, str]) -> None
     assert res.returncode == 0, res.stdout + res.stderr
     assert res.stdout == "ok\n"
     assert "network except --allow-host destinations" in res.stderr
+
+
+def test_archive_runs_with_its_siblings_visible(tmp_path: Path, env: dict[str, str]) -> None:
+    with zipfile.ZipFile(tmp_path / "tool.zip", "w") as zf:
+        zf.writestr("tool/run.sh", '#!/bin/sh\nsh "$(dirname "$0")/lib/helper.sh"\necho "$0"\n')
+        zf.writestr("tool/lib/helper.sh", "echo from helper\n")
+    res = coldrun("run", (tmp_path / "tool.zip").as_posix(), cwd=tmp_path, env=env)
+    assert res.returncode == 0, res.stdout + res.stderr
+    assert res.stdout == "from helper\n/work/src/tool/run.sh\n"
+    assert not (tmp_path / "coldrun-out").exists()

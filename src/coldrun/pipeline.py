@@ -30,7 +30,6 @@ from coldrun.report import (
 from coldrun.runners.registry import Registry, default_registry
 from coldrun.runners.shell import package_for
 from coldrun.sandbox import BwrapBackend, NetPolicy, Policy, SandboxError
-from coldrun.sandbox.base import WORKDIR
 from coldrun.vet import engine, guarddog
 from coldrun.vet.scoring import score
 
@@ -270,7 +269,9 @@ def _collect_outputs(scratch: Path, out: Path, script_name: str) -> list[str]:
     def is_output(item: Path) -> bool:
         if item.name == _SCRATCH_META:
             return False
-        return not (item.name == script_name and item.is_file() and item.stat().st_size == 0)
+        if item.name != script_name:
+            return True
+        return not ((item.is_file() and item.stat().st_size == 0) or not any(item.iterdir()))
 
     wrote = [
         i.name + ("/" if i.is_dir() else "") for i in sorted(scratch.iterdir()) if is_output(i)
@@ -411,25 +412,26 @@ def _run(opts: RunOptions, console: Console, services: Services, report: Report)
     backend = choose_backend(opts.backend, services.backends)  # 6 build
     report.backend = backend.name
     scratch = _scratch_for(fetched)
-    guest_script = Path(f"{WORKDIR}/{fetched.path.name}")
-    argv = runner.run_cmd(guest_script, list(opts.args))
     policy = Policy(
         script=fetched.path,
         scratch=scratch,
+        tree=fetched.tree,
         net=opts.net,
         allow_hosts=tuple(opts.allow_hosts),
         rw_paths=tuple(p.resolve() for p in opts.rw),
-        binaries=_host_binaries(runner.install_cmd(deps), argv),
+        binaries=_host_binaries(runner.install_cmd(deps), runner.run_cmd(fetched.path, [])),
         deps_dir=deps_dir,
         tty=opts.is_tty(),
     )
+    argv = runner.run_cmd(Path(policy.guest_script), list(opts.args))
     report.env = _install(backend, policy, runner, deps)
     # 7 run
     with _stdout_to_stderr() if opts.json else contextlib.nullcontext():
         code = backend.run(policy, argv)
 
     report.blocked = default_blocked(opts.net.value)  # 8 report
-    report.wrote = _collect_outputs(scratch, opts.out, fetched.path.name)
+    mounted = fetched.tree.name if fetched.tree is not None else fetched.path.name
+    report.wrote = _collect_outputs(scratch, opts.out, mounted)
     report.out_dir = str(opts.out) if report.wrote else None
     report.exit_code = code
     return code

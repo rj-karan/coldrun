@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Archives as sources: a local or downloaded tar (plain, gz, bz2, xz) or zip is extracted into quarantine with path traversal, absolute path, symlink and hardlink escape, device entry, member count and total size checks; the one script at the top (after lone directories) is the entry and runs with its sibling files visible read-only under `/work/src`. A file beside the script that would shadow a popular or stdlib module (a planted `requests.py`) is refused (#29).
 - `--allow-host HOST[:PORT]` (repeatable, implies `--net allow`): the sandbox keeps its empty network namespace; a host-side proxy on a unix socket, exposed inside as `127.0.0.1:3128` through the standard proxy variables, connects only to the listed destinations and resolves names on the host, so other hosts are refused and get no DNS. Dependency installs now use the same path with the registry hosts only (`pypi.org`, `files.pythonhosted.org`) instead of full network (#26).
 
 ## [0.3.0] - 2026-11-17
