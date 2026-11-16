@@ -6,6 +6,7 @@ and the steps can be tested with fake backends and registries.
 
 from __future__ import annotations
 
+import re
 import shutil
 import sys
 from dataclasses import dataclass, field
@@ -16,6 +17,7 @@ from coldrun.detect import detect
 from coldrun.fetch import fetch
 from coldrun.report import ExitCode, Report, default_blocked, exit_code_for, render, render_error
 from coldrun.runners.registry import Registry, default_registry
+from coldrun.runners.shell import package_for
 from coldrun.sandbox import BwrapBackend, NetPolicy, Policy, SandboxError
 from coldrun.sandbox.base import WORKDIR
 from coldrun.vet.findings import Severity
@@ -33,6 +35,7 @@ if TYPE_CHECKING:
 
 #: Files the pipeline itself keeps in the scratch directory.
 _SCRATCH_META = ".coldrun"
+_OS_RELEASE = Path("/etc/os-release")
 
 
 class DepsError(Exception):
@@ -147,12 +150,41 @@ def decide(
 
 def _resolve(runner: Runner, path: Path) -> DepSet:
     try:
-        return runner.resolve_deps(path)
+        deps = runner.resolve_deps(path)
     except Exception as exc:
         raise DepsError(
             f"The {runner.name} runner could not work out dependencies: {exc}.",
             "Run `coldrun deps SOURCE` for details, or pass --lang to pick another runner.",
         ) from exc
+    missing = sorted(b for b in deps.system_binaries if shutil.which(b) is None)
+    if missing:
+        raise DepsError(
+            f"The script needs commands not installed here: {', '.join(missing)}.",
+            install_hint(missing),
+        )
+    return deps
+
+
+def host_distro() -> str:
+    """``arch`` or ``debian`` from /etc/os-release; debian when unsure."""
+    try:
+        text = _OS_RELEASE.read_text()
+    except OSError:
+        return "debian"
+    ids = " ".join(re.findall(r'^ID(?:_LIKE)?=["\']?([^"\'\n]*)', text, flags=re.MULTILINE))
+    return "arch" if "arch" in ids.split() else "debian"
+
+
+def install_hint(missing: Sequence[str]) -> str:
+    """The package manager command that provides ``missing``."""
+    distro = host_distro()
+    known = [p for p in (package_for(m, distro) for m in missing) if p]
+    unknown = [m for m in missing if package_for(m, distro) is None]
+    tool = "sudo pacman -S" if distro == "arch" else "sudo apt install"
+    parts = [f"{tool} {' '.join(dict.fromkeys(known))}"] if known else []
+    if unknown:
+        parts.append(f"no known package for: {', '.join(unknown)}")
+    return "; ".join(parts) + "."
 
 
 def _host_binaries(*cmds: Sequence[str]) -> tuple[Path, ...]:
