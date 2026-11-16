@@ -177,6 +177,11 @@ class BwrapBackend:
         cmd += ["--ro-bind", str(policy.script), policy.guest_script]
         for p in policy.ro_paths:
             cmd += ["--ro-bind", str(p), str(p)]
+        if policy.binaries:
+            # /usr is read-only, so give /usr/local/bin a tmpfs to hold the mount points.
+            cmd += ["--tmpfs", "/usr/local/bin"]
+        for p in policy.binaries:
+            cmd += ["--ro-bind", str(p), f"/usr/local/bin/{p.name}"]
         for p in policy.rw_paths:
             cmd += ["--bind", str(p), str(p)]
         # Everything not bound above lives on bwrap's root tmpfs; freeze it.

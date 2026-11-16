@@ -104,6 +104,7 @@ version = "0.1.1"
 source = { editable = "." }
 dependencies = [
     { name = "rich" },
+    { name = "tomli", marker = "python_full_version < '3.11'" },
     { name = "typer" },
 ]
 
@@ -120,6 +121,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "rich", specifier = ">=13.7" },
+    { name = "tomli", marker = "python_full_version < '3.11'", specifier = ">=2" },
     { name = "typer", specifier = ">=0.12" },
 ]
 

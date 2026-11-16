@@ -105,6 +105,9 @@ class Policy:
             (``--rw``). Validated against the forbidden list.
         ro_paths: Host paths mounted read-only at the same location, for
             dependency environments and interpreters.
+        binaries: Host executables exposed read-only as ``/usr/local/bin/<name>``
+            so tools outside ``/usr`` (uv in ``~/.local/bin``) work without
+            revealing their host path.
         env: Extra variables, already decided safe by the caller, layered on
             top of the scrubbed allowlist.
         tty: Whether stdin is a terminal and should pass through.
@@ -116,6 +119,7 @@ class Policy:
     net: NetPolicy = NetPolicy.NONE
     rw_paths: tuple[Path, ...] = ()
     ro_paths: tuple[Path, ...] = ()
+    binaries: tuple[Path, ...] = ()
     env: Mapping[str, str] = field(default_factory=dict)
     tty: bool = False
     hostname: str = "coldrun"
@@ -127,7 +131,7 @@ class Policy:
             raise PolicyError(msg)
         for p in self.rw_paths:
             check_rw_path(p)
-        for p in self.ro_paths:
+        for p in (*self.ro_paths, *self.binaries):
             if not p.is_absolute():
                 msg = f"read-only path must be absolute: {p}"
                 raise PolicyError(msg)

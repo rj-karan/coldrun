@@ -127,6 +127,17 @@ def test_rw_and_ro_paths_are_mounted_at_same_location(tmp_path: Path) -> None:
     assert (str(venv), str(venv)) in pairs(cmd, "--ro-bind")
 
 
+def test_binaries_are_exposed_under_usr_local_bin(tmp_path: Path) -> None:
+    uv = tmp_path / ".local" / "bin" / "uv"
+    uv.parent.mkdir(parents=True)
+    uv.write_text("")
+    cmd = backend().command(mkpolicy(tmp_path, binaries=(uv,)), ["uv"], tiocsti_blocked=False)
+    assert (str(uv), "/usr/local/bin/uv") in pairs(cmd, "--ro-bind")
+    assert cmd.index("--tmpfs", cmd.index("/usr/local/bin") - 1) < cmd.index(str(uv))
+    plain = backend().command(mkpolicy(tmp_path), ["sh"], tiocsti_blocked=False)
+    assert "/usr/local/bin" not in plain
+
+
 def test_tty_keeps_session_only_when_tiocsti_is_blocked(tmp_path: Path) -> None:
     p = mkpolicy(tmp_path, tty=True)
     assert "--new-session" not in backend().command(p, ["sh"], tiocsti_blocked=True)

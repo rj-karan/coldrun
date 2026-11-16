@@ -17,6 +17,7 @@ from coldrun.fetch import fetch
 from coldrun.report import ExitCode, Report, default_blocked, exit_code_for, render, render_error
 from coldrun.runners.registry import Registry, default_registry
 from coldrun.sandbox import BwrapBackend, NetPolicy, Policy, SandboxError
+from coldrun.sandbox.base import WORKDIR
 from coldrun.vet.findings import Severity
 
 if TYPE_CHECKING:
@@ -154,6 +155,21 @@ def _resolve(runner: Runner, path: Path) -> DepSet:
         ) from exc
 
 
+def _host_binaries(*cmds: Sequence[str]) -> tuple[Path, ...]:
+    """Executables a command needs that live outside ``/usr`` on the host."""
+    found: list[Path] = []
+    for cmd in cmds:
+        # Look past `env` and its VAR=value prefixes to the real program.
+        rest = [a for a in cmd if "=" not in a]
+        if rest and Path(rest[0]).name == "env":
+            rest = rest[1:]
+        head = rest[0] if rest else ""
+        where = shutil.which(head) if head and "/" not in head else None
+        if where and not where.startswith("/usr/"):
+            found.append(Path(where))
+    return tuple(dict.fromkeys(found))
+
+
 def _scratch_for(fetched: Fetched) -> Path:
     scratch = fetched.quarantine / "scratch"
     scratch.mkdir(mode=0o700, exist_ok=True)
@@ -171,6 +187,7 @@ def _install(backend: Backend, policy: Policy, runner: Runner, deps: DepSet) -> 
         scratch=policy.scratch,
         net=NetPolicy.FULL,
         ro_paths=policy.ro_paths,
+        binaries=policy.binaries,
         env=policy.env,
         hostname=policy.hostname,
     )
@@ -246,16 +263,18 @@ def _run(opts: RunOptions, console: Console, services: Services, report: Report)
     backend = choose_backend(opts.backend, services.backends)  # 6 build
     report.backend = backend.name
     scratch = _scratch_for(fetched)
+    guest_script = Path(f"{WORKDIR}/{fetched.path.name}")
+    argv = runner.run_cmd(guest_script, list(opts.args))
     policy = Policy(
         script=fetched.path,
         scratch=scratch,
         net=opts.net,
         rw_paths=tuple(p.resolve() for p in opts.rw),
+        binaries=_host_binaries(runner.install_cmd(deps), argv),
         tty=opts.is_tty(),
     )
     _install(backend, policy, runner, deps)
-
-    argv = runner.run_cmd(Path(policy.guest_script), list(opts.args))  # 7 run
+    # 7 run
     code = backend.run(policy, argv)
 
     report.blocked = default_blocked(opts.net.value)  # 8 report
