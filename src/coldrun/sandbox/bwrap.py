@@ -82,10 +82,11 @@ def _etc_files(net: NetPolicy) -> tuple[str, ...]:
 
 def _host_listener(port: int) -> socket.socket:
     """A listening socket on every host interface, handed into the sandbox for ``--listen``."""
+    # nosemgrep -- all interfaces on purpose: the callback comes from the target machine
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     try:
-        sock.bind(("0.0.0.0", port))  # noqa: S104 - callbacks come from the target
+        sock.bind(("0.0.0.0", port))  # noqa: S104
         sock.listen(16)
     except OSError as exc:
         sock.close()
