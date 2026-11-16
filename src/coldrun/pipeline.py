@@ -311,6 +311,37 @@ def deps(source: str, lang: str | None, console: Console, services: Services | N
     return 0
 
 
+def _vet(
+    path: Path, runner: Runner, deps: DepSet, services: Services, *, deps_too: bool
+) -> list[Finding]:
+    findings = services.scan_script(path) + list(runner.vet(path, deps))
+    return findings + services.scan_deps(deps) if deps_too else findings
+
+
+def scan(source: str, lang: str | None, console: Console, services: Services | None = None) -> int:
+    """``coldrun scan``: fetch, detect, resolve and vet, then report. Never builds or runs.
+
+    Exits 100 when the verdict is high, so ``coldrun scan x && coldrun run x`` works.
+    """
+    services = services or Services()
+    report = Report()
+    try:
+        fetched = fetch(source)
+        report.source = fetched
+        report.detection = detect(fetched.path, services.registry, lang)
+        runner = report.detection.runner
+        report.deps = _resolve(runner, fetched.path)
+        report.findings = _vet(fetched.path, runner, report.deps, services, deps_too=True)
+    except Exception as exc:
+        report.exit_code = exit_code_for(exc)
+        render(report, console)
+        render_error(exc, console)
+        return report.exit_code
+    report.verdict = score(report.findings).level
+    render(report, console)
+    return ExitCode.REFUSED if report.verdict == "high" else 0
+
+
 def _run(opts: RunOptions, console: Console, services: Services, report: Report) -> int:
     fetched = fetch(opts.source)  # 1 fetch
     report.source = fetched
@@ -320,10 +351,9 @@ def _run(opts: RunOptions, console: Console, services: Services, report: Report)
     deps = _resolve(runner, fetched.path)  # 3 resolve
     report.deps = deps
     deps_dir = cache.env_dir(runner.name, deps) if runner.install_cmd(deps) else None
-    findings = services.scan_script(fetched.path) + list(runner.vet(fetched.path, deps))  # 4 vet
-    # shortcut: a cached env was vetted when it was installed; `coldrun scan` (#24) rescans
-    if deps_dir is None or not cache.is_ready(deps_dir):
-        findings += services.scan_deps(deps)
+    # shortcut: a cached env was vetted when it was installed; `coldrun scan` rescans
+    cached = deps_dir is not None and cache.is_ready(deps_dir)
+    findings = _vet(fetched.path, runner, deps, services, deps_too=not cached)  # 4 vet
     report.findings = findings
     report.verdict = decide(findings, opts, services, console)  # 5 decide
 

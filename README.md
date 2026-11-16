@@ -74,6 +74,7 @@ and Ubuntu). `coldrun doctor` checks the rest.
 
 ```
 coldrun run SOURCE [flags] [-- script args]   # fetch, detect, vet, sandbox, run
+coldrun scan SOURCE                           # vet only: findings and verdict, exit 100 on high
 coldrun deps SOURCE                           # print resolved dependencies, run nothing
 coldrun doctor                                # check bwrap, user namespaces, uv, podman
 coldrun cache list | clean                    # cached dependency environments
