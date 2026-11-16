@@ -1,0 +1,91 @@
+# Python rules for fetched scripts. Each rule flags behaviour aimed at the host,
+# never network activity towards a target. metadata.severity feeds the verdict.
+rules:
+  - id: py-exec-decoded
+    languages: [python]
+    severity: ERROR
+    message: Executes code that is decoded, decompressed or rebuilt from character codes at runtime, the usual way to hide a payload
+    metadata:
+      severity: high
+      category: obfuscation
+    patterns:
+      - pattern-either:
+          - pattern: $F(<... base64.b64decode(...) ...>)
+          - pattern: $F(<... base64.b32decode(...) ...>)
+          - pattern: $F(<... base64.b16decode(...) ...>)
+          - pattern: $F(<... base64.b85decode(...) ...>)
+          - pattern: $F(<... base64.a85decode(...) ...>)
+          - pattern: $F(<... base64.urlsafe_b64decode(...) ...>)
+          - pattern: $F(<... zlib.decompress(...) ...>)
+          - pattern: $F(<... gzip.decompress(...) ...>)
+          - pattern: $F(<... bz2.decompress(...) ...>)
+          - pattern: $F(<... lzma.decompress(...) ...>)
+          - pattern: $F(<... marshal.loads(...) ...>)
+          - pattern: $F(<... codecs.decode(...) ...>)
+          - pattern: $F(<... bytes.fromhex(...) ...>)
+          - pattern: $F(<... binascii.unhexlify(...) ...>)
+          - pattern: $F(<... binascii.a2b_base64(...) ...>)
+          - pattern: $F(<... chr(...) ...>)
+          - pattern: $F(<... $S[::-1] ...>)
+      - metavariable-regex:
+          metavariable: $F
+          regex: ^(exec|eval)$
+
+  - id: py-download-exec
+    languages: [python]
+    severity: ERROR
+    message: Runs code or a command that was just fetched from the network
+    metadata:
+      severity: high
+      category: download-exec
+    mode: taint
+    pattern-sources:
+      - pattern: requests.get(...)
+      - pattern: requests.post(...)
+      - pattern: httpx.get(...)
+      - pattern: urllib.request.urlopen(...)
+      - pattern: urllib.urlopen(...)
+      - pattern: urlopen(...)
+      - patterns:
+          - pattern: urllib.request.urlretrieve($URL, $P)
+          - focus-metavariable: $P
+        by-side-effect: true
+    pattern-sinks:
+      - pattern: exec(...)
+      - pattern: eval(...)
+      - pattern: compile(...)
+      - pattern: os.system(...)
+      - pattern: os.popen(...)
+      - patterns:
+          - pattern: subprocess.$M($CMD, ...)
+          - focus-metavariable: $CMD
+      - patterns:
+          - pattern: os.$E($CMD, ...)
+          - focus-metavariable: $CMD
+          - metavariable-regex:
+              metavariable: $E
+              regex: ^(execv|execve|execvp|execvpe|execl|execlp|spawnv|spawnl|startfile)$
+
+  - id: py-computed-import
+    languages: [python]
+    severity: WARNING
+    message: Imports a module whose name is assembled at runtime, which hides what the script really uses
+    metadata:
+      severity: medium
+      category: obfuscation
+    patterns:
+      - pattern-either:
+          - pattern: __import__($X, ...)
+          - pattern: importlib.import_module($X, ...)
+      - metavariable-pattern:
+          metavariable: $X
+          pattern-either:
+            - pattern: $A + $B
+            - pattern: '"...".join(...)'
+            - pattern: $S[::-1]
+            - pattern: $S.replace(...)
+            - pattern: $S.decode(...)
+            - pattern: base64.b64decode(...)
+            - pattern: bytes.fromhex(...)
+            - pattern: codecs.decode(...)
+            - pattern: chr(...)

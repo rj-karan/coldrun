@@ -1,4 +1,4 @@
-"""``coldrun doctor``: check bwrap, podman, uv, guarddog and kernel support.
+"""``coldrun doctor``: check bwrap, podman, uv, the vetting tools and kernel support.
 
 Each check is a small function that returns a :class:`CheckResult` with the
 fix for its failure, so the output tells the user exactly what to run next.
@@ -20,6 +20,7 @@ from rich.text import Text
 
 from coldrun.config import cache_dir
 from coldrun.sandbox import bwrap as bw
+from coldrun.vet import engine
 from coldrun.vet.guarddog import INSTALL_HINT
 
 if TYPE_CHECKING:
@@ -71,6 +72,8 @@ class Probes:
     python_version: tuple[int, int] = sys.version_info[:2]
     kernel: str = platform.release()
     cache: Path | None = None
+    semgrep: Callable[[], str | None] = engine.semgrep_exe
+    yara_version: Callable[[], str | None] = engine.yara_version
 
 
 def check_bwrap(p: Probes) -> CheckResult:
@@ -146,6 +149,33 @@ def check_guarddog(p: Probes) -> CheckResult:
     return CheckResult("guarddog", Status.PASS, f"{path} ({ver})")
 
 
+def check_semgrep(p: Probes) -> CheckResult:
+    """Semgrep runs the Python script rules."""
+    path = p.semgrep()
+    if path is None:
+        return CheckResult(
+            "semgrep",
+            Status.WARN,
+            "not installed; Python scripts are not vetted",
+            engine.INSTALL_HINT["semgrep"],
+        )
+    ver = p.version_of([path, "--version"]) or "version unknown"
+    return CheckResult("semgrep", Status.PASS, f"{path} ({ver})")
+
+
+def check_yara(p: Probes) -> CheckResult:
+    """YARA runs the text-level script rules."""
+    ver = p.yara_version()
+    if ver is None:
+        return CheckResult(
+            "yara",
+            Status.WARN,
+            "yara-python not installed; scripts are not vetted",
+            engine.INSTALL_HINT["yara-python"],
+        )
+    return CheckResult("yara", Status.PASS, f"yara-python {ver}")
+
+
 def check_python(p: Probes) -> CheckResult:
     """Python is new enough for coldrun itself."""
     ver = ".".join(map(str, p.python_version))
@@ -179,6 +209,8 @@ CHECKS: tuple[Callable[[Probes], CheckResult], ...] = (
     check_podman,
     check_uv,
     check_guarddog,
+    check_semgrep,
+    check_yara,
     check_cache,
 )
 

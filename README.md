@@ -61,8 +61,9 @@ run reuses that environment.
 ## Install
 
 ```
-uvx coldrun --version          # run without installing
-pipx install coldrun           # or install for good
+uv tool install 'coldrun[vet]'   # coldrun with the YARA script rules
+uv tool install semgrep guarddog # Python script rules and dependency vetting
+uvx coldrun --version            # or run without installing (no vetting)
 ```
 
 Needs Linux, Python 3.10+ and [bubblewrap](https://github.com/containers/bubblewrap)
