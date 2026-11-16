@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Environment cache: dependencies install once into `~/.cache/coldrun/envs/<key>` (key = runner, interpreter and resolved packages), bound read-only on later runs; `coldrun cache list` and `coldrun cache clean`; the report shows the environment as installed or cached (#18).
 - Bash runner: commands the script invokes are resolved as system binaries; a missing one stops the run with exit 102 and the exact `pacman -S` or `apt install` line from a command-to-package table (#17).
 
 ### Added

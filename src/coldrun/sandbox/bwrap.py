@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from coldrun.sandbox.base import (
+    DEPS_DIR,
     WORKDIR,
     Availability,
     NetPolicy,
@@ -184,6 +185,9 @@ class BwrapBackend:
             cmd += ["--ro-bind", str(p), f"/usr/local/bin/{p.name}"]
         for p in policy.rw_paths:
             cmd += ["--bind", str(p), str(p)]
+        if policy.deps_dir is not None:
+            mode = "--bind" if policy.deps_writable else "--ro-bind"
+            cmd += [mode, str(policy.deps_dir), DEPS_DIR]
         # Everything not bound above lives on bwrap's root tmpfs; freeze it.
         cmd += ["--remount-ro", "/", "--chdir", WORKDIR]
 

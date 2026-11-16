@@ -13,6 +13,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from coldrun import cache
 from coldrun.detect import detect
 from coldrun.fetch import fetch
 from coldrun.report import ExitCode, Report, default_blocked, exit_code_for, render, render_error
@@ -208,27 +209,38 @@ def _scratch_for(fetched: Fetched) -> Path:
     return scratch
 
 
-def _install(backend: Backend, policy: Policy, runner: Runner, deps: DepSet) -> None:
+def _install(backend: Backend, policy: Policy, runner: Runner, deps: DepSet) -> str | None:
+    """Install into the cached environment unless it is already there.
+
+    Returns the environment key, or ``None`` when nothing had to be installed.
+    """
     cmd = runner.install_cmd(deps)
-    if not cmd:
-        return
-    # Until --allow-host filtering lands (#26) installs get full network; the
-    # environment cache (#18) will make this a one-time cost.
+    if not cmd or policy.deps_dir is None:
+        return None
+    key = policy.deps_dir.name
+    if cache.is_ready(policy.deps_dir):
+        return f"{key} (cached)"
+    # Until --allow-host filtering lands (#26) installs get full network.
     install_policy = Policy(
         script=policy.script,
         scratch=policy.scratch,
         net=NetPolicy.FULL,
         ro_paths=policy.ro_paths,
         binaries=policy.binaries,
+        deps_dir=policy.deps_dir,
+        deps_writable=True,
         env=policy.env,
         hostname=policy.hostname,
     )
     code = backend.run(install_policy, cmd)
     if code != 0:
+        cache.discard(policy.deps_dir)
         raise DepsError(
             f"Installing dependencies failed inside the sandbox (exit {code}).",
             "Check the install output above; `coldrun deps SOURCE` shows what was requested.",
         )
+    cache.mark_ready(policy.deps_dir, runner.name, deps)
+    return f"{key} (installed)"
 
 
 def _collect_outputs(scratch: Path, out: Path, script_name: str) -> list[str]:
@@ -303,9 +315,10 @@ def _run(opts: RunOptions, console: Console, services: Services, report: Report)
         net=opts.net,
         rw_paths=tuple(p.resolve() for p in opts.rw),
         binaries=_host_binaries(runner.install_cmd(deps), argv),
+        deps_dir=cache.env_dir(runner.name, deps) if runner.install_cmd(deps) else None,
         tty=opts.is_tty(),
     )
-    _install(backend, policy, runner, deps)
+    report.env = _install(backend, policy, runner, deps)
     # 7 run
     code = backend.run(policy, argv)
 

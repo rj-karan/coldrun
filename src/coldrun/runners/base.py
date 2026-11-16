@@ -10,7 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Protocol, runtime_checkable
 
-from coldrun.sandbox.base import WORKDIR
+from coldrun.sandbox.base import DEPS_DIR
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -18,7 +18,7 @@ if TYPE_CHECKING:
     from coldrun.vet.findings import Finding
 
 #: Where runners install packages inside the sandbox; excluded from --out.
-GUEST_DEPS_DIR = f"{WORKDIR}/.coldrun/deps"
+GUEST_DEPS_DIR = DEPS_DIR
 
 
 @dataclass(frozen=True, slots=True)

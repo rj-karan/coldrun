@@ -11,6 +11,7 @@ from pathlib import Path
 import typer
 
 from coldrun import __version__
+from coldrun import cache as cache_mod
 from coldrun import doctor as doctor_mod
 from coldrun import pipeline as pipeline_mod
 from coldrun.report import make_console
@@ -43,6 +44,30 @@ def main(
     ),
 ) -> None:
     """Fetch, vet and sandbox any downloaded script in one command."""
+
+
+cache_app = typer.Typer(help="Manage cached dependency environments.", no_args_is_help=True)
+app.add_typer(cache_app, name="cache")
+
+
+@cache_app.command("list")
+def cache_list() -> None:
+    """Show cached environments: key, runner, packages, size."""
+    console = make_console()
+    envs = cache_mod.list_envs()
+    if not envs:
+        console.print(f"no cached environments in {cache_mod.envs_root()}")
+        return
+    for env in envs:
+        pkgs = ", ".join(env["packages"]) or "none"
+        size = env["bytes"] // (1024 * 1024)
+        console.print(f"{env['key']}  {env['runner']}  {size} MiB  {pkgs}")
+
+
+@cache_app.command("clean")
+def cache_clean() -> None:
+    """Delete every cached environment."""
+    make_console().print(f"removed {cache_mod.clean()} cached environment(s)")
 
 
 @app.command()
