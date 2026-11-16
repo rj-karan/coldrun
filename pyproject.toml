@@ -60,6 +60,7 @@ dev = [
   "mypy>=1.13",
   "pre-commit>=4.0",
   "yara-python>=4.5",
+  "jsonschema>=4.23",
 ]
 
 [tool.hatch.build.targets.wheel]
@@ -168,5 +169,5 @@ pretty = true
 show_error_codes = true
 
 [[tool.mypy.overrides]]
-module = "yara"
+module = ["yara", "jsonschema"]
 ignore_missing_imports = true

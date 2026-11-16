@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `--json` on `run`, `scan` and `deps`: one document on stdout matching `docs/report.schema.json` (schema version 1); human output and the script's stdout go to stderr (#25).
 - `coldrun scan SOURCE`: fetch, detect, resolve and vet, print findings and the verdict, never build or run. Exits 100 on a high verdict (#24).
 - Script rules: three Semgrep rules for Python (decoded exec, download-and-execute, computed imports) and seven YARA rules for any language (download to shell, cron, shell rc, systemd or autostart persistence, credential paths, obfuscated shell, encoded blobs), each with a match and a nomatch fixture. yara-python comes from the new `vet` extra, semgrep is an external tool (`uv tool install semgrep`); `coldrun doctor` reports both (#22).
 - GuardDog dependency vetting: every resolved PyPI, npm, Go, RubyGems or crates package is scanned before install; GuardDog's package risk label sets the severity (no risks: info, low, suspicious: medium, high_risk: high), install hooks are at least medium, plain capability hits are hidden, and a PyPI release older than 30 days is capped at low; a missing or failed scan is a low finding. `coldrun doctor` reports guarddog (#21).

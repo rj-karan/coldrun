@@ -1,0 +1,88 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/rj-karan/coldrun/blob/main/docs/report.schema.json",
+  "title": "coldrun report",
+  "description": "The document `coldrun run|scan|deps --json` prints on stdout. Fields are null until the pipeline step that fills them has run, so a failed run shows how far it got. New fields may appear without a schema_version bump; a field changing meaning or disappearing bumps it.",
+  "type": "object",
+  "required": ["schema_version", "source", "runner", "deps", "findings", "verdict", "environment", "sandbox", "wrote", "out_dir", "exit_code", "error"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": { "const": 1 },
+    "source": {
+      "description": "What was fetched into quarantine.",
+      "oneOf": [{ "type": "null" }, {
+        "type": "object",
+        "required": ["kind", "origin", "sha256", "size", "fetched_at"],
+        "properties": {
+          "kind": { "type": "string", "description": "Fetcher used: file or url." },
+          "origin": { "type": "string", "description": "The source exactly as given." },
+          "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+          "size": { "type": "integer", "minimum": 0 },
+          "fetched_at": { "type": "string", "description": "UTC, ISO 8601." }
+        }
+      }]
+    },
+    "runner": {
+      "oneOf": [{ "type": "null" }, {
+        "type": "object",
+        "required": ["name", "confidence", "reasons"],
+        "properties": {
+          "name": { "type": "string" },
+          "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+          "reasons": { "type": "array", "items": { "type": "string" } }
+        }
+      }]
+    },
+    "deps": {
+      "oneOf": [{ "type": "null" }, {
+        "type": "object",
+        "required": ["ecosystem", "packages", "system_binaries", "interpreter", "source"],
+        "properties": {
+          "ecosystem": { "type": "string", "description": "Package registry, such as pypi; empty when none." },
+          "packages": { "type": "array", "items": { "type": "string" } },
+          "system_binaries": { "type": "array", "items": { "type": "string" } },
+          "interpreter": { "type": ["string", "null"] },
+          "source": { "type": "string", "description": "Where the requirements came from: a manifest name or inferred." }
+        }
+      }]
+    },
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["rule_id", "severity", "file", "line", "message", "host"],
+        "properties": {
+          "rule_id": { "type": "string" },
+          "severity": { "enum": ["info", "low", "medium", "high"] },
+          "file": { "type": "string", "description": "File name inside the quarantine or package." },
+          "line": { "type": ["integer", "null"], "minimum": 1 },
+          "message": { "type": "string" },
+          "host": { "type": ["string", "null"], "description": "Hardcoded IP or domain the finding is about." }
+        }
+      }
+    },
+    "verdict": { "enum": ["low", "medium", "high", null] },
+    "environment": { "type": ["string", "null"], "description": "Cache key and whether it was installed or cached." },
+    "sandbox": {
+      "oneOf": [{ "type": "null" }, {
+        "type": "object",
+        "required": ["backend", "net", "blocked"],
+        "properties": {
+          "backend": { "type": "string" },
+          "net": { "enum": ["none", "allow", "full"] },
+          "blocked": { "type": "array", "items": { "type": "string" } }
+        }
+      }]
+    },
+    "wrote": { "type": "array", "items": { "type": "string" }, "description": "Files copied out of the sandbox." },
+    "out_dir": { "type": ["string", "null"] },
+    "exit_code": { "type": ["integer", "null"], "description": "The script's own code, or 2, 100, 101, 102 for coldrun's failures." },
+    "error": {
+      "oneOf": [{ "type": "null" }, {
+        "type": "object",
+        "required": ["what", "hint"],
+        "properties": { "what": { "type": "string" }, "hint": { "type": "string" } }
+      }]
+    }
+  }
+}

@@ -100,6 +100,16 @@ session. New user, PID, mount, IPC, UTS and network namespaces; no capabilities;
 `no_new_privs`. Read-only root, private `/tmp`, the script read-only in `/work`.
 Network off unless you ask. Environment scrubbed to an allowlist.
 
+### JSON output
+
+`--json` on `run`, `scan` and `deps` prints one document on stdout and moves the
+human report, and the script's own output, to stderr. The fields are described in
+[docs/report.schema.json](docs/report.schema.json); `schema_version` is 1.
+
+```
+coldrun scan tool.py --json | jq '.verdict, [.findings[].rule_id]'
+```
+
 ### Exit codes
 
 The script's own exit code, except `100` (refused by vetting), `101` (sandbox could
