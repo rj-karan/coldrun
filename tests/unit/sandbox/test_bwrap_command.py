@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from coldrun.sandbox import BwrapBackend, NetPolicy, SandboxError
+from coldrun.sandbox import BwrapBackend, NetPolicy, Policy, SandboxError
 from coldrun.sandbox import bwrap as bw
 from coldrun.sandbox.base import WORKDIR
 from tests.unit.sandbox.test_policy import mkpolicy
@@ -312,3 +312,14 @@ def test_run_with_allow_hosts_owns_the_proxy_lifecycle(
     monkeypatch.setattr(bw, "_GUEST_PYTHON", str(tmp_path / "no-python"))
     with pytest.raises(SandboxError, match=r"needs .*no-python"):
         backend().run(pol, ["true"])
+
+
+def test_tree_is_bound_read_only_instead_of_the_lone_script(tmp_path: Path) -> None:
+    tree = tmp_path / "src"
+    (tmp_path / "scratch").mkdir()
+    pol = Policy(script=tree / "a" / "x.sh", scratch=tmp_path / "scratch", tree=tree)
+    cmd = backend().command(pol, ["sh", pol.guest_script], tiocsti_blocked=False)
+    ro = pairs(cmd, "--ro-bind")
+    assert (str(tree), "/work/src") in ro
+    assert not any(dst == "/work/src/a/x.sh" for _, dst in ro)
+    assert cmd[-1] == "/work/src/a/x.sh"

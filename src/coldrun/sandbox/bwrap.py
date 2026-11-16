@@ -62,6 +62,13 @@ def _read_int(path: Path) -> int | None:
         return None
 
 
+def _script_bind(policy: Policy) -> list[str]:
+    """The script alone, or the whole extracted tree it sits in, read-only under /work."""
+    if policy.tree is not None:
+        return ["--ro-bind", str(policy.tree), f"{WORKDIR}/{policy.tree.name}"]
+    return ["--ro-bind", str(policy.script), policy.guest_script]
+
+
 def _etc_files(net: NetPolicy) -> tuple[str, ...]:
     """Host ``/etc`` files the sandbox may read: certificates need a network, DNS a full one."""
     files: tuple[str, ...] = _ETC_RO
@@ -215,8 +222,7 @@ class BwrapBackend:
         # Kernel interfaces and private writable space.
         cmd += ["--proc", "/proc", "--dev", "/dev"]
         cmd += ["--tmpfs", "/tmp", "--tmpfs", "/run"]  # noqa: S108 - guest paths
-        cmd += ["--bind", str(policy.scratch), WORKDIR]
-        cmd += ["--ro-bind", str(policy.script), policy.guest_script]
+        cmd += ["--bind", str(policy.scratch), WORKDIR, *_script_bind(policy)]
         for p in policy.ro_paths:
             cmd += ["--ro-bind", str(p), str(p)]
         if policy.binaries:

@@ -130,3 +130,12 @@ def test_allow_hosts_and_allow_policy_go_together(tmp_path: Path) -> None:
         Policy(**base, net=NetPolicy.ALLOW)  # type: ignore[arg-type]
     with pytest.raises(PolicyError, match="go together"):
         Policy(**base, allow_hosts=("a",))  # type: ignore[arg-type]
+
+
+def test_tree_puts_the_script_under_its_mount(tmp_path: Path) -> None:
+    tree = tmp_path / "src"
+    script = tree / "tool-1.0" / "run.sh"
+    pol = Policy(script=script, scratch=tmp_path, tree=tree)
+    assert pol.guest_script == "/work/src/tool-1.0/run.sh"
+    with pytest.raises(PolicyError, match="not inside its tree"):
+        Policy(script=tmp_path / "other.sh", scratch=tmp_path, tree=tree)

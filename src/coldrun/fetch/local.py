@@ -9,7 +9,7 @@ from coldrun.fetch.base import FetchError, safe_filename
 
 
 class LocalFetcher:
-    """Copies a regular file. Directories and archives come later."""
+    """Copies a regular file; :func:`coldrun.fetch.fetch` unpacks it when it is an archive."""
 
     kind = "file"
 
