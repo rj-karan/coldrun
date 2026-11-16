@@ -112,6 +112,9 @@ def run(
     net: NetPolicy = typer.Option(
         NetPolicy.NONE, "--net", help="Network policy inside the sandbox.", case_sensitive=False
     ),
+    allow_host: list[str] = typer.Option(
+        [], "--allow-host", help="Permit one HOST[:PORT]; repeatable; implies --net allow."
+    ),
     rw: list[Path] = typer.Option([], "--rw", help="Mount one host path read-write; repeatable."),
     out: Path = typer.Option(
         Path("./coldrun-out"), "--out", help="Where files the script writes are copied on exit."
@@ -123,13 +126,18 @@ def run(
     as_json: bool = typer.Option(False, "--json", help=JSON_HELP),
 ) -> None:
     """Fetch, vet, sandbox and run SOURCE. Everything after -- goes to the script."""
-    if net is NetPolicy.ALLOW:
-        typer.echo("--net allow needs --allow-host, which arrives in v0.4.0 (#26).", err=True)
+    if allow_host and net is NetPolicy.NONE:
+        net = NetPolicy.ALLOW
+    if (net is NetPolicy.ALLOW) != bool(allow_host):
+        typer.echo(
+            "--net allow and --allow-host go together; --net full ignores the list.", err=True
+        )
         raise typer.Exit(code=2)
     opts = pipeline_mod.RunOptions(
         source=source,
         args=list(ctx.args),
         net=net,
+        allow_hosts=allow_host,
         rw=rw,
         out=out,
         backend=backend,

@@ -387,3 +387,15 @@ def test_scan_errors_use_the_usual_exit_codes() -> None:
     con, buf = console()
     assert pipeline.scan("/nope/x.sh", None, con, Services(registry(), {})) == 2
     assert "exit code" in buf.getvalue()
+
+
+def test_pypi_installs_reach_only_the_registry(script: Path, tmp_path: Path) -> None:
+    runner = VettingRunner(install=["uv", "pip", "install", "x"])
+    backend = FakeBackend(codes=[0])
+    deps = DepSet("pypi", ("x",), (), "python3", "test")
+    (tmp_path / "s").mkdir()
+    policy = Policy(script=script, scratch=tmp_path / "s", deps_dir=cache.env_dir("vetsh", deps))
+    assert pipeline._install(backend, policy, runner, deps) is not None
+    install_policy = backend.runs[0][0]
+    assert install_policy.net is NetPolicy.ALLOW
+    assert install_policy.allow_hosts == ("pypi.org", "files.pythonhosted.org")

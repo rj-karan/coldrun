@@ -92,14 +92,39 @@ def test_network_none_hides_resolver_and_certs(tmp_path: Path) -> None:
     assert "/etc/ld.so.cache" in bound
 
 
-@pytest.mark.parametrize("net", [NetPolicy.ALLOW, NetPolicy.FULL])
-def test_network_policies(tmp_path: Path, net: NetPolicy) -> None:
-    cmd = backend().command(mkpolicy(tmp_path, net=net), ["true"], tiocsti_blocked=False)
-    bound = [dst for _, dst in pairs(cmd, "--ro-bind-try")]
-    assert "/etc/resolv.conf" in bound
-    assert "/etc/ssl" in bound
-    assert ("--share-net" in cmd) is (net is NetPolicy.FULL)
-    assert "--unshare-all" in cmd
+def test_network_full_shares_net_and_binds_resolver(tmp_path: Path) -> None:
+    cmd = backend().command(mkpolicy(tmp_path, net=NetPolicy.FULL), ["true"], tiocsti_blocked=False)
+    bound = {src for src, _ in pairs(cmd, "--ro-bind-try")}
+    assert {"/etc/resolv.conf", "/etc/hosts", "/etc/ssl"} <= bound
+    assert "--share-net" in cmd
+
+
+def test_network_allow_uses_the_bridge_and_proxy(tmp_path: Path) -> None:
+    sock = tmp_path / "net" / "proxy.sock"
+    pol = mkpolicy(tmp_path, net=NetPolicy.ALLOW, allow_hosts=("example.com:443",))
+    cmd = backend().command(pol, ["/bin/sh", "x"], tiocsti_blocked=False, proxy_sock=sock)
+    assert "--share-net" not in cmd  # the namespace stays empty; only the socket gets in
+    bound = {src for src, _ in pairs(cmd, "--ro-bind-try")}
+    assert "/etc/ssl" in bound and "/etc/resolv.conf" not in bound
+    assert (str(sock.parent), "/run/coldrun/net") in pairs(cmd, "--bind")
+    assert any(
+        dst == "/run/coldrun/bridge.py" and src.endswith("bridge.py")
+        for src, dst in pairs(cmd, "--ro-bind")
+    )
+    env = dict(pairs(cmd, "--setenv"))
+    assert env["https_proxy"] == env["HTTP_PROXY"] == "http://127.0.0.1:3128"
+    tail = cmd[cmd.index("--") + 1 :]
+    assert tail == [
+        "/usr/bin/python3",
+        "/run/coldrun/bridge.py",
+        "3128",
+        "/run/coldrun/net/proxy.sock",
+        "--",
+        "/bin/sh",
+        "x",
+    ]
+    with pytest.raises(SandboxError, match="proxy socket"):
+        backend().command(pol, ["true"], tiocsti_blocked=False)
 
 
 def test_environment_is_cleared_then_set_from_allowlist(tmp_path: Path) -> None:
@@ -264,3 +289,26 @@ def test_run_probes_then_passes_exit_code(tmp_path: Path, monkeypatch: pytest.Mo
     monkeypatch.setattr(subprocess, "run", boom)
     with pytest.raises(SandboxError, match="could not start bubblewrap"):
         backend().run(mkpolicy(tmp_path), ["true"])
+
+
+def test_run_with_allow_hosts_owns_the_proxy_lifecycle(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    seen: list[str] = []
+
+    def fake_exec(self: bw.BwrapBackend, cmd: list[str]) -> int:
+        sock_dir = Path({dst: src for src, dst in pairs(cmd, "--bind")}["/run/coldrun/net"])
+        assert (sock_dir / "proxy.sock").exists()  # the proxy is listening while the script runs
+        assert "/run/coldrun/bridge.py" in cmd
+        seen.append(str(sock_dir))
+        return 5
+
+    monkeypatch.setattr(bw.BwrapBackend, "probe", lambda self: None)
+    monkeypatch.setattr(bw.BwrapBackend, "_exec", fake_exec)
+    pol = mkpolicy(tmp_path, net=NetPolicy.ALLOW, allow_hosts=("example.com",))
+    assert backend().run(pol, ["true"]) == 5
+    assert seen and not Path(seen[0]).exists()  # the socket directory is gone afterwards
+
+    monkeypatch.setattr(bw, "_GUEST_PYTHON", str(tmp_path / "no-python"))
+    with pytest.raises(SandboxError, match=r"needs .*no-python"):
+        backend().run(pol, ["true"])

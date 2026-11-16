@@ -121,3 +121,12 @@ def test_scrub_env_extra_layers_but_cannot_move_home_or_path() -> None:
     for name in ("HOME", "TMPDIR", "PATH"):
         with pytest.raises(PolicyError, match=f"override of {name}"):
             scrub_env({}, {name: "/elsewhere"})
+
+
+def test_allow_hosts_and_allow_policy_go_together(tmp_path: Path) -> None:
+    base = {"script": tmp_path / "s", "scratch": tmp_path}
+    Policy(**base, net=NetPolicy.ALLOW, allow_hosts=("a",))  # type: ignore[arg-type]
+    with pytest.raises(PolicyError, match="go together"):
+        Policy(**base, net=NetPolicy.ALLOW)  # type: ignore[arg-type]
+    with pytest.raises(PolicyError, match="go together"):
+        Policy(**base, allow_hosts=("a",))  # type: ignore[arg-type]

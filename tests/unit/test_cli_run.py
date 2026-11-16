@@ -77,10 +77,24 @@ def test_scan_command_passes_through(monkeypatch: pytest.MonkeyPatch) -> None:
     assert seen == {"source": "x.py", "lang": "python"}
 
 
-def test_run_rejects_net_allow_for_now() -> None:
-    result = CliRunner().invoke(cli.app, ["run", "tool.sh", "--net", "allow"])
-    assert result.exit_code == 2
-    assert "#26" in result.output
+def test_allow_host_implies_net_allow_and_mismatches_are_usage_errors(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    seen: list[pipeline.RunOptions] = []
+
+    def fake_run(opts: pipeline.RunOptions, console: object, services: object = None) -> int:
+        seen.append(opts)
+        return 0
+
+    monkeypatch.setattr(pipeline, "run", fake_run)
+    ok = CliRunner().invoke(
+        cli.app, ["run", "t.sh", "--allow-host", "a.b:443", "--allow-host", "c"]
+    )
+    assert ok.exit_code == 0 and seen[0].net is NetPolicy.ALLOW
+    assert seen[0].allow_hosts == ["a.b:443", "c"]
+    for args in (["--net", "allow"], ["--net", "full", "--allow-host", "a"]):
+        result = CliRunner().invoke(cli.app, ["run", "t.sh", *args])
+        assert result.exit_code == 2 and "go together" in result.output
 
 
 def test_run_help_lists_flags() -> None:
