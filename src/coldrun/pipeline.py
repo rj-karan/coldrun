@@ -292,6 +292,24 @@ def run(opts: RunOptions, console: Console, services: Services | None = None) ->
     return code
 
 
+def deps(source: str, lang: str | None, console: Console, services: Services | None = None) -> int:
+    """``coldrun deps``: fetch, detect and resolve, then report. Never installs or runs."""
+    services = services or Services()
+    report = Report()
+    try:
+        fetched = fetch(source)
+        report.source = fetched
+        report.detection = detect(fetched.path, services.registry, lang)
+        report.deps = _resolve(report.detection.runner, fetched.path)
+    except Exception as exc:
+        report.exit_code = exit_code_for(exc)
+        render(report, console)
+        render_error(exc, console)
+        return report.exit_code
+    render(report, console)
+    return 0
+
+
 def _run(opts: RunOptions, console: Console, services: Services, report: Report) -> int:
     fetched = fetch(opts.source)  # 1 fetch
     report.source = fetched

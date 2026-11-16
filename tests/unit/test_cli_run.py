@@ -37,6 +37,19 @@ def test_run_builds_options_and_passes_script_args(
     assert (opts.lang, opts.backend, opts.yes, opts.force) == ("sh", "bwrap", True, True)
 
 
+def test_deps_command_passes_through(monkeypatch: pytest.MonkeyPatch) -> None:
+    seen: dict[str, object] = {}
+
+    def fake(source: str, lang: str | None, console: object, services: object = None) -> int:
+        seen.update(source=source, lang=lang)
+        return 7
+
+    monkeypatch.setattr(pipeline, "deps", fake)
+    result = CliRunner().invoke(cli.app, ["deps", "x.py", "--lang", "python"])
+    assert result.exit_code == 7
+    assert seen == {"source": "x.py", "lang": "python"}
+
+
 def test_run_rejects_net_allow_for_now() -> None:
     result = CliRunner().invoke(cli.app, ["run", "tool.sh", "--net", "allow"])
     assert result.exit_code == 2

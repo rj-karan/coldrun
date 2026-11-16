@@ -71,6 +71,15 @@ def cache_clean() -> None:
 
 
 @app.command()
+def deps(
+    source: str = typer.Argument(..., help="Local path, http(s) URL or GitHub blob URL."),
+    lang: str | None = typer.Option(None, "--lang", help="Override type detection."),
+) -> None:
+    """Print the resolved dependencies of SOURCE without installing or running anything."""
+    raise typer.Exit(code=pipeline_mod.deps(source, lang, make_console()))
+
+
+@app.command()
 def doctor() -> None:
     """Check bwrap, podman, uv and kernel support, and say how to fix what is missing."""
     results = doctor_mod.run_checks()
