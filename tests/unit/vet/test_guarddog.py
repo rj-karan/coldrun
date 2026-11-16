@@ -37,13 +37,33 @@ def test_hits_map_to_severities_and_locations() -> None:
         "guarddog.deceptive_author",
     }  # plain capability-network-outbound is dropped
     hook = by["guarddog.capability-process-hooks"]
-    assert hook.severity is Severity.MEDIUM
     assert hook.location() == "hooked/setup.py:11"
     assert hook.message == 'cmdclass={"install": PostInstall}'
-    assert by["guarddog.threat-process-download-exec"].severity is Severity.HIGH
+    # the package label "suspicious" sets every hit to medium
+    assert {f.severity for f in found} == {Severity.MEDIUM}
     assert by["guarddog.threat-process-download-exec"].message == "dl+exec"
     assert by["guarddog.typosquatting"].message == "requests"
     assert by["guarddog.deceptive_author"].location() == "hooked"
+
+
+@pytest.mark.parametrize(
+    ("target", "sev"),
+    [
+        ("evil", Severity.HIGH),  # label high_risk
+        ("lowish", Severity.LOW),  # label low
+        ("fp", Severity.INFO),  # label no_risks_detected: shown, never changes the verdict
+        ("unscored", Severity.HIGH),  # no risk_score at all: assume the worst
+    ],
+)
+def test_package_label_decides_threat_severity(target: str, sev: Severity) -> None:
+    (f,) = guarddog.scan_deps(pypi(target), exe=FAKE)
+    assert (f.rule_id, f.severity) == ("guarddog.threat-network-exfiltration", sev)
+
+
+def test_install_hook_is_at_least_medium_even_when_unscored_package_is_clean() -> None:
+    assert guarddog._severity("capability-process-hooks", "no_risks_detected") is Severity.MEDIUM
+    assert guarddog._severity("capability-process-hooks", "high_risk") is Severity.HIGH
+    assert guarddog._severity("capability-network-outbound", "high_risk") is None
 
 
 def test_clean_package_has_no_findings() -> None:

@@ -2,8 +2,10 @@
 
 GuardDog downloads a package and analyses it with Semgrep and registry
 metadata rules inside its own extraction sandbox; nothing from the package is
-executed. It is optional: when it is missing or a scan fails, the report says
-so as a low finding and the verdict is otherwise unchanged.
+executed. Its own package risk label decides the severity of what it found,
+because single rule hits fire on popular libraries (PyYAML's ``__import__``
+is a "dynamic loader"). It is optional: when it is missing or a scan fails,
+the report says so as a low finding and the verdict is otherwise unchanged.
 """
 
 from __future__ import annotations
@@ -25,6 +27,13 @@ ECOSYSTEMS = frozenset({"pypi", "npm", "go", "rubygems", "crates"})
 INSTALL_HINT = "uv tool install guarddog"
 TIMEOUT = 300
 # name, optional [extras], optional ==pin; other specifiers scan the latest release
+#: GuardDog's package risk label -> severity of every hit it reports for that package.
+_LABELS = {
+    "no_risks_detected": Severity.INFO,
+    "low": Severity.LOW,
+    "suspicious": Severity.MEDIUM,
+    "high_risk": Severity.HIGH,
+}
 _SPEC = re.compile(r"^\s*([A-Za-z0-9@][A-Za-z0-9._/-]*)(?:\[[^\]]*\])?\s*(?:==\s*([^\s,;]+))?")
 
 
@@ -66,8 +75,9 @@ def scan_package(
     out = [
         _failed(where, f"{step}: {_last_line(err)}") for step, err in data.get("errors", {}).items()
     ]
+    label = str(data.get("risk_score", {}).get("label", ""))
     for rule, hits in data.get("results", {}).items():
-        sev = _severity(rule)
+        sev = _severity(rule, label)
         if sev is None or not hits:
             continue
         for hit in hits if isinstance(hits, list) else [hits]:
@@ -88,13 +98,14 @@ def scan_package(
     return out
 
 
-def _severity(rule: str) -> Severity | None:
-    if rule.startswith("threat-"):
-        return Severity.HIGH
-    if rule == "capability-process-hooks" or not rule.startswith("capability-"):
-        return Severity.MEDIUM  # install hooks and registry metadata rules
-    # shortcut: plain capability-* hits describe every library; show them once --verbose exists
-    return None
+def _severity(rule: str, label: str) -> Severity | None:
+    if rule.startswith("capability-") and rule != "capability-process-hooks":
+        # shortcut: plain capability-* hits describe every library; show them once --verbose exists
+        return None
+    sev = _LABELS.get(label, Severity.HIGH)  # no or unknown package score: assume the worst
+    if rule == "capability-process-hooks" and sev.rank < Severity.MEDIUM.rank:
+        return Severity.MEDIUM  # install hooks always ask, whatever the package score
+    return sev
 
 
 def _failed(where: Path, why: str) -> Finding:
