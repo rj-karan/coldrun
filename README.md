@@ -30,7 +30,9 @@ and Ubuntu). `coldrun doctor` checks the rest.
 
 ```
 coldrun run SOURCE [flags] [-- script args]   # fetch, detect, vet, sandbox, run
+coldrun deps SOURCE                           # print resolved dependencies, run nothing
 coldrun doctor                                # check bwrap, user namespaces, uv, podman
+coldrun cache list | clean                    # cached dependency environments
 ```
 
 `SOURCE` is a local path, an `http(s)` URL or a GitHub `blob` URL. Everything

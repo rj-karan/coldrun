@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-11-16
+
+Completes milestone M2: a Python script with three third-party imports and a Bash script using jq and curl both run with zero manual setup.
+
 ### Added
 
 - `coldrun deps SOURCE [--lang NAME]`: fetch, detect and print the resolved dependencies without installing or running anything (#19).
@@ -60,7 +64,8 @@ Foundation release (published under the former name `muzzle`): an empty `muzzle 
 - Issue templates (bug, feature, new runner, false positive), pull request template, CODEOWNERS, CONTRIBUTING, SECURITY and CODE_OF_CONDUCT (#4).
 - CLAUDE.md with the repo workflow, branch protection, code quality bar and the hard security rules for agents and contributors (#8).
 
-[Unreleased]: https://github.com/rj-karan/coldrun/compare/v0.1.1...HEAD
+[Unreleased]: https://github.com/rj-karan/coldrun/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/rj-karan/coldrun/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/rj-karan/coldrun/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/rj-karan/coldrun/compare/v0.0.1...v0.1.0
 [0.0.1]: https://github.com/rj-karan/coldrun/releases/tag/v0.0.1
