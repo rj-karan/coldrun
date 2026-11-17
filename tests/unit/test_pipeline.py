@@ -17,7 +17,7 @@ from coldrun.runners.base import DepSet, Runner, RunnerInfo
 from coldrun.runners.registry import Registry
 from coldrun.runners.shell import ShellRunner
 from coldrun.sandbox import NetPolicy, Policy, SandboxError
-from coldrun.sandbox.base import Availability
+from coldrun.sandbox.base import Availability, Backend
 from coldrun.vet.findings import Finding, Severity
 
 
@@ -246,6 +246,33 @@ def test_choose_backend() -> None:
         SandboxError, match=r"No sandbox backend is usable\. bad: fake is off turn it on"
     ):
         choose_backend(None, {"bad": bad})
+
+
+def test_choose_backend_matches_images_to_podman() -> None:
+    bw, pod = FakeBackend(name="bwrap"), FakeBackend(name="podman")
+    both: dict[str, Backend] = {"bwrap": bw, "podman": pod}
+    assert choose_backend(None, both) is bw  # host toolchains never land on podman
+    assert choose_backend(None, both, "img") is pod
+    assert choose_backend("podman", both, "img") is pod
+    with pytest.raises(SandboxError, match="cannot run it"):
+        choose_backend("bwrap", both, "img")
+    with pytest.raises(SandboxError, match="host toolchain"):
+        choose_backend("podman", both)
+    with pytest.raises(SandboxError, match="No sandbox backend is usable"):
+        choose_backend(None, {"bwrap": bw}, "img")
+
+
+def test_image_runner_gets_podman_and_no_host_binaries(script: Path, tmp_path: Path) -> None:
+    class Imaged(VettingRunner):
+        image = "docker.io/library/python:2.7-slim"
+
+    pod = FakeBackend(name="podman")
+    con, _ = console()
+    svc = Services(registry(Imaged()), {"bwrap": FakeBackend(name="bwrap"), "podman": pod})
+    opts = RunOptions(source=str(script), out=tmp_path / "o", tty=False)
+    assert pipeline.run(opts, con, svc) == 0
+    policy, _ = pod.runs[0]
+    assert policy.image == "docker.io/library/python:2.7-slim" and policy.binaries == ()
 
 
 def test_sandbox_error_is_101(script: Path) -> None:

@@ -29,7 +29,7 @@ from coldrun.report import (
 )
 from coldrun.runners.registry import Registry, default_registry
 from coldrun.runners.shell import package_for
-from coldrun.sandbox import BwrapBackend, NetPolicy, Policy, SandboxError
+from coldrun.sandbox import BwrapBackend, NetPolicy, PodmanBackend, Policy, SandboxError
 from coldrun.vet import engine, guarddog
 from coldrun.vet.scoring import score
 from coldrun.vet.source import scan_source
@@ -109,21 +109,35 @@ class Services:
     """Injection points for tests: registry, backends and the confirm prompt."""
 
     registry: Registry = field(default_factory=default_registry)
-    backends: dict[str, Backend] = field(default_factory=lambda: {"bwrap": BwrapBackend()})
+    backends: dict[str, Backend] = field(
+        default_factory=lambda: {"bwrap": BwrapBackend(), "podman": PodmanBackend()}
+    )
     confirm: object = None  # Callable[[str], bool]; None means ask on the terminal
     scan_deps: Callable[[DepSet], list[Finding]] = guarddog.scan_deps
     scan_script: Callable[[Path], list[Finding]] = engine.scan_yara
     scan_source: Callable[[str], list[Finding]] = scan_source
 
 
-def choose_backend(name: str | None, backends: dict[str, Backend]) -> Backend:
-    """``--backend`` or the first available one."""
+def choose_backend(
+    name: str | None, backends: dict[str, Backend], image: str | None = None
+) -> Backend:
+    """``--backend`` or the first available one that fits: Podman for image runners only."""
     if name is not None:
         if name not in backends:
             known = ", ".join(sorted(backends)) or "none"
             raise SandboxError(
-                f"backend {name!r} is not available in this version.",
-                f"Use one of: {known}. Podman arrives in v1.0.0 (#30).",
+                f"backend {name!r} is not available in this version.", f"Use one of: {known}."
+            )
+        if image is not None and name != "podman":
+            raise SandboxError(
+                f"This runner runs in a container image; --backend {name} cannot run it.",
+                "Use --backend podman, or leave --backend out.",
+            )
+        if image is None and name == "podman":
+            raise SandboxError(
+                "Podman runs the runners that ship an image (Python 2); this one uses the host"
+                " toolchain.",
+                "Use --backend bwrap, or leave --backend out.",
             )
         backend = backends[name]
         avail = backend.available()
@@ -131,7 +145,9 @@ def choose_backend(name: str | None, backends: dict[str, Backend]) -> Backend:
             raise SandboxError(avail.reason, avail.hint)
         return backend
     reasons: list[str] = []
-    for backend in backends.values():
+    for key, backend in backends.items():
+        if (key == "podman") != (image is not None):
+            continue
         avail = backend.available()
         if avail.ok:
             return backend
@@ -255,6 +271,7 @@ def _install(backend: Backend, policy: Policy, runner: Runner, deps: DepSet) -> 
     install_policy = Policy(
         script=policy.script,
         scratch=policy.scratch,
+        image=policy.image,
         net=NetPolicy.ALLOW if registry_hosts else NetPolicy.FULL,
         allow_hosts=registry_hosts,
         ro_paths=policy.ro_paths,
@@ -429,7 +446,8 @@ def _run(opts: RunOptions, console: Console, services: Services, report: Report)
     report.findings = findings
     report.verdict = decide(findings, opts, services, console)  # 5 decide
 
-    backend = choose_backend(opts.backend, services.backends)  # 6 build
+    image: str | None = getattr(runner, "image", None)
+    backend = choose_backend(opts.backend, services.backends, image)  # 6 build
     report.backend = backend.name
     scratch = _scratch_for(fetched)
     policy = Policy(
@@ -440,7 +458,11 @@ def _run(opts: RunOptions, console: Console, services: Services, report: Report)
         allow_hosts=tuple(opts.allow_hosts),
         listen=tuple(opts.listen),
         rw_paths=tuple(p.resolve() for p in opts.rw),
-        binaries=_host_binaries(runner.install_cmd(deps), runner.run_cmd(fetched.path, [])),
+        image=image,
+        # an image brings its own tools; a host binary would shadow them
+        binaries=()
+        if image
+        else _host_binaries(runner.install_cmd(deps), runner.run_cmd(fetched.path, [])),
         deps_dir=deps_dir,
         tty=opts.is_tty(),
     )

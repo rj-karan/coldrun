@@ -371,3 +371,8 @@ def test_run_with_listen_opens_host_sockets_and_passes_them(
             backend().run(mkpolicy(tmp_path, listen=(port,)), ["nc"])
     finally:
         busy.close()
+
+
+def test_bwrap_refuses_image_policies(tmp_path: Path) -> None:
+    with pytest.raises(SandboxError, match="container image"):
+        backend().command(mkpolicy(tmp_path, image="python:2.7"), ["true"], tiocsti_blocked=False)
