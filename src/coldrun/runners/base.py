@@ -10,6 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Protocol, runtime_checkable
 
+from coldrun.detect import interpreter_from_shebang, read_shebang
 from coldrun.sandbox.base import DEPS_DIR
 
 if TYPE_CHECKING:
@@ -100,3 +101,11 @@ class RunnerInfo:
     entry_point: str
     distribution: str | None = None
     load_error: str | None = field(default=None, compare=False)
+
+
+def detect_by(path: Path, interpreters: frozenset[str], extensions: dict[str, float]) -> float:
+    """A matching shebang is certain, another shebang is not ours, else the extension's score."""
+    shebang = read_shebang(path)
+    if shebang is None:
+        return extensions.get(path.suffix.lower(), 0.0)
+    return 1.0 if interpreter_from_shebang(shebang) in interpreters else 0.0

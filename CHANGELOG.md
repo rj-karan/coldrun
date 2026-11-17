@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Node runner: dependencies from `package.json` beside the script, else `require` and `import` statements (relative paths and builtins skipped); installed with the system `npm --ignore-scripts` over registry-only network and found through `NODE_PATH`. Toolchains come from `/usr/bin`; a Node from mise or nvm is hidden by the sandbox and the error says so (#32).
 - Source signals: a force-push to a GitHub origin in the last 30 days is a medium finding, read from the repository activity API (#91).
 
 ## [0.4.0] - 2026-11-18

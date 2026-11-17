@@ -127,6 +127,7 @@ not be set up; run `coldrun doctor`) and `102` (dependency resolution failed).
 |---|---|---|
 | Python 3 | PEP 723 block, `requirements.txt` beside the script, else imports parsed with `ast` | uv, once per dependency set, cached under `~/.cache/coldrun/envs` |
 | Bash / sh | Commands the script invokes | Nothing; missing tools are reported with the `pacman` or `apt` line |
+| Node | `package.json` beside the script, else `require` and `import` statements | The system `npm` with `--ignore-scripts`, registry-only network |
 
 ## Status
 

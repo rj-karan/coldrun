@@ -431,3 +431,23 @@ def test_source_signals_reach_the_verdict(script: Path) -> None:
     assert pipeline.scan(str(script), None, con, svc) == 0
     assert origins == [str(script)]
     assert "verdict       medium" in buf.getvalue()
+
+
+def test_system_toolchain_missing_names_the_version_manager(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    class NeedsNode(VettingRunner):
+        def resolve_deps(self, path: Path) -> DepSet:
+            return DepSet("npm", (), ("/nonexistent/bin/node",), "node", "test")
+
+    monkeypatch.setattr(
+        "shutil.which", lambda b: None if b.startswith("/") else "/home/u/.mise/node"
+    )
+    with pytest.raises(DepsError) as exc:
+        pipeline._resolve(NeedsNode(), tmp_path / "x.js")
+    assert "commands not installed here: node." in exc.value.what
+    assert "version manager" in exc.value.hint
+    monkeypatch.setattr("shutil.which", lambda b: None)
+    with pytest.raises(DepsError) as exc:
+        pipeline._resolve(NeedsNode(), tmp_path / "x.js")
+    assert "version manager" not in exc.value.hint

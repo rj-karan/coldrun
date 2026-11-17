@@ -127,6 +127,7 @@ PACKAGES: dict[str, tuple[str, str]] = {
     "perl": ("perl", "perl"),
     "ruby": ("ruby", "ruby"),
     "node": ("nodejs", "nodejs"),
+    "npm": ("npm", "npm"),
     "gcc": ("gcc", "gcc"),
     "make": ("make", "make"),
     "unzip": ("unzip", "unzip"),
