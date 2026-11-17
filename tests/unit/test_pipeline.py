@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import io
+import os
 import shutil
 import zipfile
 from collections.abc import Sequence
@@ -451,3 +452,22 @@ def test_system_toolchain_missing_names_the_version_manager(
     with pytest.raises(DepsError) as exc:
         pipeline._resolve(NeedsNode(), tmp_path / "x.js")
     assert "version manager" not in exc.value.hint
+
+
+def test_install_output_goes_to_stderr(
+    script: Path, tmp_path: Path, capfd: pytest.CaptureFixture[str]
+) -> None:
+    class Chatty(FakeBackend):
+        def run(self, policy: Policy, argv: Sequence[str]) -> int:
+            os.write(1, b"added 1 package\n" if policy.deps_writable else b"script output\n")
+            return 0
+
+    runner = VettingRunner(install=["npm", "install", "x"])
+    con, _ = console()
+    svc = Services(registry(runner), {"c": Chatty()}, scan_deps=lambda d: [])
+    assert (
+        pipeline.run(RunOptions(source=str(script), out=tmp_path / "o", tty=False), con, svc) == 0
+    )
+    out, err = capfd.readouterr()
+    assert out == "script output\n"
+    assert "added 1 package" in err

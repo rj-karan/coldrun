@@ -262,7 +262,8 @@ def _install(backend: Backend, policy: Policy, runner: Runner, deps: DepSet) -> 
         env=policy.env,
         hostname=policy.hostname,
     )
-    code = backend.run(install_policy, cmd)
+    with _stdout_to_stderr():  # installer chatter is not the script's output
+        code = backend.run(install_policy, cmd)
     if code != 0:
         cache.discard(policy.deps_dir)
         raise DepsError(
