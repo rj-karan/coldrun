@@ -130,10 +130,11 @@ not be set up; run `coldrun doctor`) and `102` (dependency resolution failed).
 
 ## Status
 
-v0.3.0 completes milestone M3 of the [spec](docs/SPEC.md): Python and Bash
-scripts run sandboxed with their dependencies resolved, and both the script
-(Semgrep and YARA rules) and its dependencies (GuardDog) are vetted first.
-`--allow-host` and GitHub/gist/exploit-db sources (M4), and Podman plus more
+v0.4.0 completes milestone M4 of the [spec](docs/SPEC.md). Python and Bash
+scripts run sandboxed with their dependencies resolved. The script and its
+dependencies are vetted first. Network access can be limited to named hosts
+with `--allow-host`, callbacks arrive through `--listen`, and scripts can come
+from archives, GitHub repositories, gists and exploit-db. Podman and more
 runners (M5) follow.
 
 ## Contributing
