@@ -51,6 +51,7 @@ _SCRATCH_META = ".coldrun"
 REGISTRY_HOSTS: dict[str, tuple[str, ...]] = {
     "pypi": ("pypi.org", "files.pythonhosted.org"),
     "npm": ("registry.npmjs.org",),
+    "go": ("proxy.golang.org", "sum.golang.org"),
 }
 _OS_RELEASE = Path("/etc/os-release")
 
