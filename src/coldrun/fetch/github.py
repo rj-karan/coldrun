@@ -33,6 +33,12 @@ _EDB = re.compile(
 )
 
 
+def _match(pattern: re.Pattern[str], spec: str) -> re.Match[str]:
+    if (m := pattern.match(spec)) is None:  # pragma: no cover - fetch() calls matches() first
+        raise FetchError(f"{spec} is not a URL this fetcher understands.", "Open an issue.")
+    return m
+
+
 class GithubFetcher:
     """``github.com/OWNER/REPO`` and ``.../tree/REF[/PATH]``."""
 
@@ -48,8 +54,7 @@ class GithubFetcher:
 
     def fetch(self, spec: str, dest: Path) -> Path:
         """Download the tarball, extract it safely, return the entry script."""
-        m = _REPO.match(spec)
-        assert m is not None  # noqa: S101 - matches() ran first
+        m = _match(_REPO, spec)
         owner, repo, ref, subpath = m.groups()
         # shortcut: a ref with a slash (feature/x) is read as ref "feature" + path "x"; use the SHA
         tarball = self._url.fetch(f"{GITHUB}/{owner}/{repo}/archive/{ref or 'HEAD'}.tar.gz", dest)
@@ -70,8 +75,7 @@ class GistFetcher:
 
     def fetch(self, spec: str, dest: Path) -> Path:
         """Write every file of the gist, then pick the one script among them."""
-        m = _GIST.match(spec)
-        assert m is not None  # noqa: S101 - matches() ran first
+        m = _match(_GIST, spec)
         data = get_json(f"{GIST_API}/gists/{m.group(1)}")
         tree = dest / "src"
         tree.mkdir()
@@ -104,6 +108,5 @@ class ExploitDbFetcher:
 
     def fetch(self, spec: str, dest: Path) -> Path:
         """Download the raw exploit; the site names the file, which sets its extension."""
-        m = _EDB.match(spec)
-        assert m is not None  # noqa: S101 - matches() ran first
+        m = _match(_EDB, spec)
         return self._url.fetch(f"{EXPLOIT_DB}/download/{m.group(1)}", dest)
