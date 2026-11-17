@@ -63,3 +63,18 @@ def test_go_fetches_modules_through_the_proxy_only(tmp_path: Path) -> None:
     again = coldrun("run", str(FX / "go" / "deps.go"), tmp_path=tmp_path)
     assert again.returncode == 0 and "(cached)" in again.stderr
     assert coldrun("cache", "clean", tmp_path=tmp_path).returncode == 0  # module cache is removable
+
+
+@needs("/usr/bin/ruby")
+def test_ruby_hello(tmp_path: Path) -> None:
+    res = coldrun("run", str(FX / "ruby" / "hello.rb"), "--", "x", tmp_path=tmp_path)
+    assert res.returncode == 0, res.stdout + res.stderr
+    assert res.stdout == 'hello from ruby ["x"]\n'
+
+
+@needs("/usr/bin/ruby", "/usr/bin/gem")
+def test_ruby_installs_gems_from_rubygems_only(tmp_path: Path) -> None:
+    res = coldrun("run", str(FX / "ruby" / "deps.rb"), tmp_path=tmp_path)
+    assert res.returncode == 0, res.stdout + res.stderr
+    assert res.stdout == "ruby deps ok true\n"
+    assert "(installed)" in res.stderr
