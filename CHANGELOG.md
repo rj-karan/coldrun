@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-11-18
+
+Completes milestone M4: a script reaches only the hosts you allow, a callback arrives on a forwarded port, and scripts can come from archives, GitHub repositories, gists and exploit-db.
+
 ### Added
 
 - GitHub, gist and exploit-db sources: a repository URL or `tree/REF[/PATH]` URL downloads the ref's tarball through the safe archive path and runs the script at the top or at PATH; a gist page URL is read from the API file by file; `edb:ID` or an exploit-db URL downloads the raw exploit under the name the site gives it. For GitHub origins a repository or owner account younger than 30 days is a medium finding, read from the API (`GITHUB_TOKEN` raises the rate limit; a failed check is info). Force-push detection is split out to #91 (#28).
@@ -83,7 +87,8 @@ Foundation release (published under the former name `muzzle`): an empty `muzzle 
 - Issue templates (bug, feature, new runner, false positive), pull request template, CODEOWNERS, CONTRIBUTING, SECURITY and CODE_OF_CONDUCT (#4).
 - CLAUDE.md with the repo workflow, branch protection, code quality bar and the hard security rules for agents and contributors (#8).
 
-[Unreleased]: https://github.com/rj-karan/coldrun/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/rj-karan/coldrun/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/rj-karan/coldrun/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/rj-karan/coldrun/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/rj-karan/coldrun/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/rj-karan/coldrun/compare/v0.1.0...v0.1.1
