@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Source signals: a force-push to a GitHub origin in the last 30 days is a medium finding, read from the repository activity API (#91).
+
 ## [0.4.0] - 2026-11-18
 
 Completes milestone M4: a script reaches only the hosts you allow, a callback arrives on a forwarded port, and scripts can come from archives, GitHub repositories, gists and exploit-db.
