@@ -139,3 +139,12 @@ def test_tree_puts_the_script_under_its_mount(tmp_path: Path) -> None:
     assert pol.guest_script == "/work/src/tool-1.0/run.sh"
     with pytest.raises(PolicyError, match="not inside its tree"):
         Policy(script=tmp_path / "other.sh", scratch=tmp_path, tree=tree)
+
+
+def test_listen_ports_are_validated(tmp_path: Path) -> None:
+    base = {"script": tmp_path / "s", "scratch": tmp_path}
+    Policy(**base, listen=(4444,))  # type: ignore[arg-type]
+    with pytest.raises(PolicyError, match="pointless with full"):
+        Policy(**base, net=NetPolicy.FULL, listen=(4444,))  # type: ignore[arg-type]
+    with pytest.raises(PolicyError, match="1-65535"):
+        Policy(**base, listen=(0,))  # type: ignore[arg-type]

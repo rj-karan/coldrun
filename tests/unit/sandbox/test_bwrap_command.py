@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import itertools
 import shutil
+import socket
 import subprocess
 from pathlib import Path
 
@@ -117,8 +118,8 @@ def test_network_allow_uses_the_bridge_and_proxy(tmp_path: Path) -> None:
     assert tail == [
         "/usr/bin/python3",
         "/run/coldrun/bridge.py",
-        "3128",
-        "/run/coldrun/net/proxy.sock",
+        "--proxy",
+        "3128:/run/coldrun/net/proxy.sock",
         "--",
         "/bin/sh",
         "x",
@@ -296,7 +297,7 @@ def test_run_with_allow_hosts_owns_the_proxy_lifecycle(
 ) -> None:
     seen: list[str] = []
 
-    def fake_exec(self: bw.BwrapBackend, cmd: list[str]) -> int:
+    def fake_exec(self: bw.BwrapBackend, cmd: list[str], pass_fds: tuple[int, ...] = ()) -> int:
         sock_dir = Path({dst: src for src, dst in pairs(cmd, "--bind")}["/run/coldrun/net"])
         assert (sock_dir / "proxy.sock").exists()  # the proxy is listening while the script runs
         assert "/run/coldrun/bridge.py" in cmd
@@ -310,7 +311,7 @@ def test_run_with_allow_hosts_owns_the_proxy_lifecycle(
     assert seen and not Path(seen[0]).exists()  # the socket directory is gone afterwards
 
     monkeypatch.setattr(bw, "_GUEST_PYTHON", str(tmp_path / "no-python"))
-    with pytest.raises(SandboxError, match=r"needs .*no-python"):
+    with pytest.raises(SandboxError, match=r"need .*no-python"):
         backend().run(pol, ["true"])
 
 
@@ -323,3 +324,50 @@ def test_tree_is_bound_read_only_instead_of_the_lone_script(tmp_path: Path) -> N
     assert (str(tree), "/work/src") in ro
     assert not any(dst == "/work/src/a/x.sh" for _, dst in ro)
     assert cmd[-1] == "/work/src/a/x.sh"
+
+
+def test_listen_ports_ride_the_bridge_as_inherited_fds(tmp_path: Path) -> None:
+    pol = mkpolicy(tmp_path, listen=(4444, 8080))
+    cmd = backend().command(pol, ["nc"], tiocsti_blocked=False, listen_fds={4444: 7, 8080: 9})
+    assert "--share-net" not in cmd and "--proxy" not in cmd
+    tail = cmd[cmd.index("--") + 1 :]
+    bridge = ["/usr/bin/python3", "/run/coldrun/bridge.py"]
+    assert tail == [*bridge, "--listen", "7:4444", "--listen", "9:8080", "--", "nc"]
+    assert not any(k.endswith("proxy") for k, _ in pairs(cmd, "--setenv"))
+    with pytest.raises(SandboxError, match="no host socket"):
+        backend().command(pol, ["nc"], tiocsti_blocked=False, listen_fds={4444: 7})
+
+
+def test_run_with_listen_opens_host_sockets_and_passes_them(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    seen: dict[str, object] = {}
+
+    def fake_exec(self: bw.BwrapBackend, cmd: list[str], pass_fds: tuple[int, ...] = ()) -> int:
+        seen["fds"] = pass_fds
+        seen["cmd"] = cmd
+        with socket.create_connection(("127.0.0.1", port), timeout=5):
+            pass  # the host port is open while the sandbox runs
+        return 0
+
+    free = socket.socket()
+    free.bind(("127.0.0.1", 0))
+    port = free.getsockname()[1]
+    free.close()
+    monkeypatch.setattr(bw.BwrapBackend, "probe", lambda self: None)
+    monkeypatch.setattr(bw.BwrapBackend, "_exec", fake_exec)
+    assert backend().run(mkpolicy(tmp_path, listen=(port,)), ["nc"]) == 0
+    fds = seen["fds"]
+    assert isinstance(fds, tuple) and len(fds) == 1
+    assert f"{fds[0]}:{port}" in seen["cmd"]  # type: ignore[operator]
+    with pytest.raises(OSError, match="refused"):
+        socket.create_connection(("127.0.0.1", port), timeout=2)  # closed again afterwards
+
+    busy = socket.socket()
+    busy.bind(("127.0.0.1", port))
+    busy.listen(1)
+    try:
+        with pytest.raises(SandboxError, match="cannot listen on host port"):
+            backend().run(mkpolicy(tmp_path, listen=(port,)), ["nc"])
+    finally:
+        busy.close()

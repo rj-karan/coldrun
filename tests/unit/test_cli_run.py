@@ -104,3 +104,20 @@ def test_run_help_lists_flags() -> None:
     assert result.exit_code == 0
     for flag in ("--net", "--rw", "--out", "--backend", "--lang", "--yes", "--force"):
         assert flag in result.output
+
+
+def test_listen_is_passed_and_refused_with_full_network(monkeypatch: pytest.MonkeyPatch) -> None:
+    seen: list[pipeline.RunOptions] = []
+
+    def fake_run(opts: pipeline.RunOptions, console: object, services: object = None) -> int:
+        seen.append(opts)
+        return 0
+
+    monkeypatch.setattr(pipeline, "run", fake_run)
+    assert (
+        CliRunner().invoke(cli.app, ["run", "t.sh", "--listen", "4444", "--listen", "80"]).exit_code
+        == 0
+    )
+    assert seen[0].listen == [4444, 80]
+    result = CliRunner().invoke(cli.app, ["run", "t.sh", "--net", "full", "--listen", "1"])
+    assert result.exit_code == 2 and "not needed" in result.output
