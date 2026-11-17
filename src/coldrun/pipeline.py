@@ -32,6 +32,7 @@ from coldrun.runners.shell import package_for
 from coldrun.sandbox import BwrapBackend, NetPolicy, Policy, SandboxError
 from coldrun.vet import engine, guarddog
 from coldrun.vet.scoring import score
+from coldrun.vet.source import scan_source
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator, Sequence
@@ -106,6 +107,7 @@ class Services:
     confirm: object = None  # Callable[[str], bool]; None means ask on the terminal
     scan_deps: Callable[[DepSet], list[Finding]] = guarddog.scan_deps
     scan_script: Callable[[Path], list[Finding]] = engine.scan_yara
+    scan_source: Callable[[str], list[Finding]] = scan_source
 
 
 def choose_backend(name: str | None, backends: dict[str, Backend]) -> Backend:
@@ -360,9 +362,11 @@ def deps(
 
 
 def _vet(
-    path: Path, runner: Runner, deps: DepSet, services: Services, *, deps_too: bool
+    fetched: Fetched, runner: Runner, deps: DepSet, services: Services, *, deps_too: bool
 ) -> list[Finding]:
-    findings = services.scan_script(path) + list(runner.vet(path, deps))
+    path = fetched.path
+    findings = services.scan_source(fetched.origin) + services.scan_script(path)
+    findings += runner.vet(path, deps)
     return findings + services.scan_deps(deps) if deps_too else findings
 
 
@@ -386,7 +390,7 @@ def scan(
         report.detection = detect(fetched.path, services.registry, lang)
         runner = report.detection.runner
         report.deps = _resolve(runner, fetched.path)
-        report.findings = _vet(fetched.path, runner, report.deps, services, deps_too=True)
+        report.findings = _vet(fetched, runner, report.deps, services, deps_too=True)
     except Exception as exc:
         return _finish(report, console, exc, as_json)
     report.verdict = score(report.findings).level
@@ -405,7 +409,7 @@ def _run(opts: RunOptions, console: Console, services: Services, report: Report)
     deps_dir = cache.env_dir(runner.name, deps) if runner.install_cmd(deps) else None
     # shortcut: a cached env was vetted when it was installed; `coldrun scan` rescans
     cached = deps_dir is not None and cache.is_ready(deps_dir)
-    findings = _vet(fetched.path, runner, deps, services, deps_too=not cached)  # 4 vet
+    findings = _vet(fetched, runner, deps, services, deps_too=not cached)  # 4 vet
     report.findings = findings
     report.verdict = decide(findings, opts, services, console)  # 5 decide
 

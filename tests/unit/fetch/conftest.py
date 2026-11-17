@@ -13,8 +13,10 @@ class _Handler(http.server.BaseHTTPRequestHandler):
     """Serves a few fixed routes for the URL fetcher tests."""
 
     routes: ClassVar[dict[str, tuple[int, bytes, dict[str, str]]]] = {}
+    seen_headers: ClassVar[dict[str, str]] = {}
 
     def do_GET(self) -> None:
+        _Handler.seen_headers = dict(self.headers)
         status, body, headers = self.routes.get(self.path, (404, b"not found", {}))
         self.send_response(status)
         for k, v in headers.items():
@@ -44,6 +46,10 @@ class Server:
     ) -> str:
         _Handler.routes[path] = (status, body, headers or {})
         return self.url(path)
+
+    @property
+    def last_headers(self) -> dict[str, str]:
+        return _Handler.seen_headers
 
     def close(self) -> None:
         self.httpd.shutdown()

@@ -8,6 +8,8 @@ equivalents so the user can paste what the browser shows.
 
 from __future__ import annotations
 
+import json
+import os
 import re
 import urllib.error
 import urllib.parse
@@ -93,6 +95,8 @@ class UrlFetcher:
         )
         try:
             with self._opener.open(req, timeout=TIMEOUT_SECONDS) as resp:
+                if given := resp.headers.get_filename():
+                    target = dest / safe_filename(given)  # exploit-db, GitHub archives
                 declared = resp.headers.get("Content-Length")
                 if declared and int(declared) > MAX_SOURCE_BYTES:
                     raise FetchError(
@@ -134,3 +138,28 @@ class UrlFetcher:
                         "Fetch a smaller artefact.",
                     )
                 out.write(chunk)
+
+
+def get_json(url: str, *, auth: bool = False) -> Any:  # noqa: ANN401 - parsed JSON
+    """GET a JSON API document with the same timeout and size cap as downloads.
+
+    ``auth`` adds ``GITHUB_TOKEN`` when it is set, for the GitHub API rate limit.
+    """
+    headers = {"User-Agent": f"coldrun/{__version__}", "Accept": "application/json"}
+    if auth and (token := os.environ.get("GITHUB_TOKEN")):
+        headers["Authorization"] = f"Bearer {token}"
+    req = urllib.request.Request(url, headers=headers)  # noqa: S310 - fixed https bases
+    opener = urllib.request.build_opener(_SafeRedirects())
+    try:
+        with opener.open(req, timeout=TIMEOUT_SECONDS) as resp:
+            body = resp.read(MAX_SOURCE_BYTES + 1)
+    except urllib.error.HTTPError as exc:
+        raise FetchError(f"{url} returned HTTP {exc.code}.", "Check the ID or URL.") from exc
+    except (urllib.error.URLError, TimeoutError) as exc:
+        raise FetchError(f"Could not reach {url}.", "Check your network, then retry.") from exc
+    if len(body) > MAX_SOURCE_BYTES:
+        raise FetchError(f"{url} answered with more than {MAX_SOURCE_BYTES} bytes.", "Retry later.")
+    try:
+        return json.loads(body)
+    except ValueError as exc:
+        raise FetchError(f"{url} did not return JSON.", "Retry later.") from exc

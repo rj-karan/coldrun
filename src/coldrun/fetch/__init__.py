@@ -21,6 +21,7 @@ from coldrun.fetch.base import (
     new_quarantine,
     seal,
 )
+from coldrun.fetch.github import ExploitDbFetcher, GistFetcher, GithubFetcher
 from coldrun.fetch.local import LocalFetcher
 from coldrun.fetch.url import UrlFetcher
 
@@ -30,9 +31,12 @@ if TYPE_CHECKING:
 
 __all__ = [
     "MAX_SOURCE_BYTES",
+    "ExploitDbFetcher",
     "FetchError",
     "Fetched",
     "Fetcher",
+    "GistFetcher",
+    "GithubFetcher",
     "LocalFetcher",
     "UrlFetcher",
     "default_fetchers",
@@ -42,7 +46,7 @@ __all__ = [
 
 def default_fetchers() -> list[Fetcher]:
     """Fetchers in the order they are tried. URL forms first, paths last."""
-    return [UrlFetcher(), LocalFetcher()]
+    return [GithubFetcher(), GistFetcher(), ExploitDbFetcher(), UrlFetcher(), LocalFetcher()]
 
 
 def _pick(spec: str, fetchers: Sequence[Fetcher]) -> Fetcher:
@@ -52,7 +56,7 @@ def _pick(spec: str, fetchers: Sequence[Fetcher]) -> Fetcher:
     scheme = urllib.parse.urlsplit(spec).scheme or "that"
     raise FetchError(
         f"No fetcher understands {spec!r} ({scheme} is not supported).",
-        "Use a local path or archive, an http(s) URL, or a GitHub blob URL.",
+        "Use a local path or archive, an http(s) URL, a GitHub repo or gist, or edb:ID.",
     )
 
 
@@ -80,8 +84,10 @@ def fetch(
         if archive.is_archive(file):
             entry = archive.unpack(file, qdir)
             file.unlink()
-            return seal(fetcher.kind, spec, entry, root=qdir)
-        return seal(fetcher.kind, spec, file)
+            file = entry
+        # repos, gists and archives leave a tree in src/ that the script runs beside
+        root = qdir if file.is_relative_to(qdir / "src") else None
+        return seal(fetcher.kind, spec, file, root=root)
     except BaseException:
         shutil.rmtree(qdir, ignore_errors=True)
         raise
