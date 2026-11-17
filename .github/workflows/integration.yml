@@ -29,7 +29,7 @@ jobs:
       - name: Install bubblewrap and podman
         run: |
           sudo apt-get update -q
-          sudo apt-get install -y -q --no-install-recommends bubblewrap podman uidmap slirp4netns fuse-overlayfs
+          sudo apt-get install -y -q --no-install-recommends bubblewrap podman uidmap slirp4netns fuse-overlayfs nodejs npm golang-go ruby
 
       - name: Enable unprivileged user namespaces
         # Ubuntu 24.04 runner images ship an AppArmor restriction that stops

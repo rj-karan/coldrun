@@ -48,7 +48,10 @@ if TYPE_CHECKING:
 #: Files the pipeline itself keeps in the scratch directory.
 _SCRATCH_META = ".coldrun"
 #: Where installs may connect. shortcut: an ecosystem missing here gets full network
-REGISTRY_HOSTS: dict[str, tuple[str, ...]] = {"pypi": ("pypi.org", "files.pythonhosted.org")}
+REGISTRY_HOSTS: dict[str, tuple[str, ...]] = {
+    "pypi": ("pypi.org", "files.pythonhosted.org"),
+    "npm": ("registry.npmjs.org",),
+}
 _OS_RELEASE = Path("/etc/os-release")
 
 
@@ -174,11 +177,20 @@ def _resolve(runner: Runner, path: Path) -> DepSet:
             f"The {runner.name} runner could not work out dependencies: {exc}.",
             "Run `coldrun deps SOURCE` for details, or pass --lang to pick another runner.",
         ) from exc
-    missing = sorted(b for b in deps.system_binaries if shutil.which(b) is None)
+    absent = [b for b in deps.system_binaries if shutil.which(b) is None]
+    missing = sorted({Path(b).name for b in absent})
     if missing:
+        hint = install_hint(missing)
+        elsewhere = [
+            n for n in missing if any(b.startswith("/") for b in absent) and shutil.which(n)
+        ]
+        if elsewhere:
+            hint += (
+                f" Your {', '.join(elsewhere)} comes from a version manager in your home"
+                " directory, which the sandbox hides; coldrun uses the system one in /usr/bin."
+            )
         raise DepsError(
-            f"The script needs commands not installed here: {', '.join(missing)}.",
-            install_hint(missing),
+            f"The script needs commands not installed here: {', '.join(missing)}.", hint
         )
     return deps
 
@@ -250,7 +262,8 @@ def _install(backend: Backend, policy: Policy, runner: Runner, deps: DepSet) -> 
         env=policy.env,
         hostname=policy.hostname,
     )
-    code = backend.run(install_policy, cmd)
+    with _stdout_to_stderr():  # installer chatter is not the script's output
+        code = backend.run(install_policy, cmd)
     if code != 0:
         cache.discard(policy.deps_dir)
         raise DepsError(
