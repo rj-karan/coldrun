@@ -35,7 +35,7 @@ def coldrun(*args: str, tmp_path: Path) -> subprocess.CompletedProcess[str]:
 def test_node_hello(tmp_path: Path) -> None:
     res = coldrun("run", str(FX / "node" / "hello.js"), tmp_path=tmp_path)
     assert res.returncode == 0, res.stdout + res.stderr
-    assert res.stdout.startswith("hello from node string function")
+    assert res.stdout == "hello from node function function\n"
 
 
 @needs("/usr/bin/node", "/usr/bin/npm")

@@ -105,7 +105,7 @@ class NodeRunner:
             return []
         return [
             "/usr/bin/env", "npm_config_cache=/tmp/npm-cache", "npm_config_update_notifier=false",
-            NPM, "install", "--no-audit", "--no-fund", "--ignore-scripts",
+            NPM, "install", "--no-audit", "--no-fund", "--ignore-scripts", "--loglevel=error",
             "--prefix", GUEST_DEPS_DIR, *deps.packages,
         ]  # fmt: skip
 
