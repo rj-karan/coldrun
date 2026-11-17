@@ -53,6 +53,7 @@ sh = "coldrun.runners.shell:ShellRunner"
 python = "coldrun.runners.python:PythonRunner"
 node = "coldrun.runners.node:NodeRunner"
 go = "coldrun.runners.go:GoRunner"
+ruby = "coldrun.runners.ruby:RubyRunner"
 
 [dependency-groups]
 dev = [

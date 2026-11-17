@@ -52,6 +52,7 @@ REGISTRY_HOSTS: dict[str, tuple[str, ...]] = {
     "pypi": ("pypi.org", "files.pythonhosted.org"),
     "npm": ("registry.npmjs.org",),
     "go": ("proxy.golang.org", "sum.golang.org"),
+    "rubygems": ("rubygems.org", "index.rubygems.org"),
 }
 _OS_RELEASE = Path("/etc/os-release")
 

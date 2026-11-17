@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Ruby runner: dependencies from a `Gemfile` beside the script (names), else `require` lines outside the standard library, mapped to gem names where they differ; `gem install` into the cached environment from rubygems.org only, found through `GEM_HOME` with Ruby's own gems still visible (#34).
 - Go runner: dependencies from `go.mod` beside the script, else imports whose first element is a host; `go get` into the cached environment through `proxy.golang.org` and `sum.golang.org` only, then the script is built offline (`GOPROXY=off`) in a temporary module and runs from `/work` (#33).
 - Installer output now always goes to stderr, so it never mixes with the script's stdout or the `--json` document.
 - Node runner: dependencies from `package.json` beside the script, else `require` and `import` statements (relative paths and builtins skipped); installed with the system `npm --ignore-scripts` over registry-only network and found through `NODE_PATH`. Toolchains come from `/usr/bin`; a Node from mise or nvm is hidden by the sandbox and the error says so (#32).

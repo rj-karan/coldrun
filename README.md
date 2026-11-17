@@ -129,6 +129,7 @@ not be set up; run `coldrun doctor`) and `102` (dependency resolution failed).
 | Bash / sh | Commands the script invokes | Nothing; missing tools are reported with the `pacman` or `apt` line |
 | Node | `package.json` beside the script, else `require` and `import` statements | The system `npm` with `--ignore-scripts`, registry-only network |
 | Go | `go.mod` beside the script, else third-party imports | The system `go get` through `proxy.golang.org` only; built offline |
+| Ruby | `Gemfile` beside the script, else `require` lines that are not the standard library | The system `gem install` from rubygems.org only |
 
 ## Status
 
