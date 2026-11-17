@@ -60,8 +60,12 @@ def is_archive(path: Path) -> bool:
     return head.startswith((b"\x1f\x8b", b"\xfd7zXZ\x00", b"BZh")) or head[257:262] == b"ustar"
 
 
-def unpack(archive: Path, dest: Path) -> Path:
-    """Extract ``archive`` into ``dest/src`` and return the entry script inside it."""
+def unpack(archive: Path, dest: Path, subpath: str = "") -> Path:
+    """Extract ``archive`` into ``dest/src`` and return the entry script inside it.
+
+    ``subpath`` is a path inside the archive's single top directory (a GitHub
+    ``tree`` URL): a file there is the entry, a directory is where to look.
+    """
     tree = dest / "src"
     tree.mkdir()
     try:
@@ -77,12 +81,15 @@ def unpack(archive: Path, dest: Path) -> Path:
         raise FetchError(
             f"{archive.name} is not a readable archive: {exc}.", "Download it again."
         ) from exc
-    return pick_entry(tree)
+    return pick_entry(tree, subpath)
 
 
-def pick_entry(tree: Path) -> Path:
+def pick_entry(tree: Path, subpath: str = "") -> Path:
     """The one script to run: descend lone directories, then expect one script file."""
-    here = tree
+    here = _descend(tree, subpath) if subpath else tree
+    if here.is_file():
+        _refuse_planted(here.parent)
+        return here
     while True:
         items = sorted(p for p in here.iterdir() if not p.name.startswith("."))
         if len(items) == 1 and items[0].is_dir():
@@ -103,6 +110,18 @@ def pick_entry(tree: Path) -> Path:
         f"The archive holds several scripts: {', '.join(p.name for p in scripts)}.",
         "Point coldrun at one of them, for GitHub with the file's blob URL.",
     )
+
+
+def _descend(tree: Path, subpath: str) -> Path:
+    """``subpath`` below the archive's single top directory, refusing anything that leaves it."""
+    tops = list(tree.iterdir())
+    root = tops[0] if len(tops) == 1 and tops[0].is_dir() else tree
+    if ".." in PurePosixPath(subpath).parts or PurePosixPath(subpath).is_absolute():
+        raise FetchError(f"{subpath} leaves the repository.", "Use a path inside it.")
+    here = root / subpath
+    if not here.exists() or not here.resolve().is_relative_to(tree.resolve()):
+        raise FetchError(f"{subpath} is not in the repository.", "Check the path and the ref.")
+    return here
 
 
 def _looks_like_script(path: Path) -> bool:

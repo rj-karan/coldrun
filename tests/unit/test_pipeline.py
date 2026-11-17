@@ -417,3 +417,17 @@ def test_archive_source_runs_from_its_tree(tmp_path: Path, monkeypatch: pytest.M
     assert argv[-1] == "/work/src/tool/run.sh"
     assert (policy.tree / "tool" / "lib" / "helper.sh").exists()
     assert "src/" not in buf.getvalue()  # the mounted tree's placeholder is not an output
+
+
+def test_source_signals_reach_the_verdict(script: Path) -> None:
+    origins: list[str] = []
+
+    def scan_source(origin: str) -> list[Finding]:
+        origins.append(origin)
+        return [finding(Severity.MEDIUM)]
+
+    con, buf = console()
+    svc = Services(registry(VettingRunner([])), {}, scan_deps=lambda d: [], scan_source=scan_source)
+    assert pipeline.scan(str(script), None, con, svc) == 0
+    assert origins == [str(script)]
+    assert "verdict       medium" in buf.getvalue()
