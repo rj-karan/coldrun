@@ -226,6 +226,11 @@ class BwrapBackend:
             listen_fds: ``{port: fd}`` of listening sockets the host opened
                 for ``policy.listen``; the bridge accepts on them inside.
         """
+        if policy.image is not None:
+            raise SandboxError(
+                f"This runner runs in the container image {policy.image}.",
+                "Use --backend podman, or leave --backend out.",
+            )
         bwrap = self.executable or "bwrap"
         blocked = tiocsti_is_blocked() if tiocsti_blocked is None else tiocsti_blocked
         cmd: list[str] = [bwrap, "--unshare-all", "--die-with-parent"]

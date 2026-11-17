@@ -200,3 +200,10 @@ def test_bridge_forwards_an_inherited_listener_to_the_inside_port() -> None:
     assert bridge.main(["--listen", f"{host2.fileno()}:{dead_port}", "--", "true"]) == 0
     with socket.create_connection(("127.0.0.1", host2.getsockname()[1]), timeout=5) as c:
         assert c.recv(10) == b""
+
+
+def test_bridge_pump_tolerates_closed_sockets() -> None:
+    a, b = socket.socketpair()
+    a.close()
+    b.close()
+    bridge._pump(a, b)  # both sides already closed: returns quietly

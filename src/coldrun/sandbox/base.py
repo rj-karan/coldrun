@@ -102,6 +102,8 @@ class Policy:
             ``/work/<name>``, or inside ``tree`` when it came from one.
         tree: The extracted archive the script sits in, mounted read-only at
             ``/work/<tree name>`` so its sibling files are visible.
+        image: Container image the runner needs; only the Podman backend
+            runs it.
         scratch: Private host directory mounted read-write at ``/work``; the
             script's cwd. Files it writes land here and are copied to
             ``--out`` by the pipeline.
@@ -128,6 +130,7 @@ class Policy:
     script: Path
     scratch: Path
     tree: Path | None = None
+    image: str | None = None
     net: NetPolicy = NetPolicy.NONE
     allow_hosts: tuple[str, ...] = ()
     listen: tuple[int, ...] = ()

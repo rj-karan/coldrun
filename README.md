@@ -93,7 +93,7 @@ the script untouched.
 | `--listen PORT` | none | Forward one host port into the sandbox for callbacks and reverse shells; repeatable. The script listens on `127.0.0.1:PORT` inside; the rest of the network stays closed |
 | `--rw PATH` | none | Mount one host path read-write; repeatable. `/`, `$HOME` and credential directories are refused |
 | `--out DIR` | `./coldrun-out` | Where files the script writes in `/work` are copied on exit |
-| `--backend bwrap` | auto | Force a sandbox backend (Podman arrives in v1.0.0) |
+| `--backend bwrap\|podman` | auto | Force a sandbox backend; runners that ship an image use Podman, the rest bubblewrap |
 | `--lang NAME` | auto | Override type detection |
 | `--yes` | off | Skip the confirmation on medium risk |
 | `--force` | off | Run despite a high-risk verdict; prints a warning |

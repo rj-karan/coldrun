@@ -14,6 +14,7 @@ from coldrun.sandbox.base import (
     scrub_env,
 )
 from coldrun.sandbox.bwrap import BwrapBackend
+from coldrun.sandbox.podman import PodmanBackend
 
 __all__ = [
     "EXIT_SANDBOX_FAILED",
@@ -22,6 +23,7 @@ __all__ = [
     "Backend",
     "BwrapBackend",
     "NetPolicy",
+    "PodmanBackend",
     "Policy",
     "PolicyError",
     "SandboxError",

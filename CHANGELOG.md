@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Podman backend for runners that ship a container image: rootless, `--cap-drop=all`, no new privileges, read-only root, private `/tmp` and `/run`, `--userns=keep-id`, a pid limit, network off unless asked, scrubbed environment, and `--allow-host` through the same host-side proxy (the bridge now also runs on Python 2.7). Backends are picked per runner: image runners go to Podman, host-toolchain runners to bubblewrap; a mismatched `--backend` is a clear error. `--listen` stays bubblewrap-only (#30).
 - Ruby runner: dependencies from a `Gemfile` beside the script (names), else `require` lines outside the standard library, mapped to gem names where they differ; `gem install` into the cached environment from rubygems.org only, found through `GEM_HOME` with Ruby's own gems still visible (#34).
 - Go runner: dependencies from `go.mod` beside the script, else imports whose first element is a host; `go get` into the cached environment through `proxy.golang.org` and `sum.golang.org` only, then the script is built offline (`GOPROXY=off`) in a temporary module and runs from `/work` (#33).
 - Installer output now always goes to stderr, so it never mixes with the script's stdout or the `--json` document.
