@@ -59,7 +59,8 @@ def test_missing_tools_and_broken_userns(tmp_path: Path) -> None:
         by["user namespaces"].status is Status.FAIL and by["user namespaces"].fix == "sysctl it on"
     )
     assert by["TIOCSTI"].status is Status.WARN and "legacy_tiocsti" in by["TIOCSTI"].fix
-    assert by["podman"].status is Status.WARN
+    assert by["podman"].status is Status.WARN and "Python 2" in by["podman"].detail
+    assert "Node" not in by["podman"].detail  # Node, Go and Ruby use the host toolchain
     assert by["uv"].status is Status.WARN and "astral.sh" in by["uv"].fix
     assert by["guarddog"].status is Status.WARN and "uv tool install" in by["guarddog"].fix
     assert by["semgrep"].status is Status.WARN and "uv tool install semgrep" in by["semgrep"].fix
