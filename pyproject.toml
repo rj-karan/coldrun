@@ -1,5 +1,6 @@
 [build-system]
-requires = ["hatchling>=1.33.0"]
+# 1.27 is the first hatchling with PEP 639 license-files; distro packages lag PyPI
+requires = ["hatchling>=1.27"]
 build-backend = "hatchling.build"
 
 [project]

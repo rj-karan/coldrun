@@ -1,0 +1,66 @@
+name: AUR
+
+on:
+  pull_request:
+    paths: ["packaging/**", "pyproject.toml", "src/coldrun/cli.py", ".github/workflows/aur.yml"]
+  push:
+    branches: [main]
+    paths: ["packaging/**", "pyproject.toml", "src/coldrun/cli.py", ".github/workflows/aur.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  aur:
+    name: AUR packages
+    runs-on: ubuntu-latest
+    container: archlinux:base-devel
+    steps:
+      - name: Install build and runtime dependencies
+        run: >
+          pacman -Syu --noconfirm --needed git namcap man-db
+          python-build python-installer python-hatchling python-typer python-rich uv bubblewrap
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0  # coldrun-git needs the tags for its version
+
+      - name: Build both packages from this checkout as an unprivileged user
+        run: |
+          useradd -m builder
+          sudo -u builder git config --global --add safe.directory '*'
+          git config --global --add safe.directory '*'
+          ver=$(sed -n 's/^pkgver=//p' packaging/aur/coldrun/PKGBUILD)
+          work=/home/builder/aur
+          mkdir -p "$work"
+          cp -r packaging/aur/coldrun packaging/aur/coldrun-git "$work/"
+          # the release tarball and the git source are replaced by this checkout
+          git archive --prefix="coldrun-$ver/" -o "$work/coldrun/coldrun-$ver.tar.gz" HEAD
+          sed -i "s#git+\$url.git#git+file://$GITHUB_WORKSPACE#" "$work/coldrun-git/PKGBUILD"
+          chown -R builder "$work"
+          (cd "$work/coldrun" && sudo -u builder makepkg --force --skipchecksums)
+          (cd "$work/coldrun-git" && sudo -u builder makepkg --force)
+
+      - name: namcap has no errors, and .SRCINFO matches the PKGBUILD
+        run: |
+          chown -R builder packaging/aur
+          for d in coldrun coldrun-git; do
+            namcap packaging/aur/$d/PKGBUILD /home/builder/aur/$d/*.pkg.tar.zst | tee -a namcap.txt
+            (cd packaging/aur/$d && sudo -u builder makepkg --printsrcinfo | diff -u .SRCINFO -)
+          done
+          if grep -E ' E: ' namcap.txt; then exit 1; fi
+
+      - name: Install the release package and use it
+        run: |
+          # the archlinux image skips man pages to stay small; a real install keeps them
+          sed -i '/^NoExtract/d' /etc/pacman.conf
+          pacman -U --noconfirm /home/builder/aur/coldrun/*.pkg.tar.zst
+          coldrun --version
+          man -w coldrun
+          test -f /usr/share/bash-completion/completions/coldrun
+          test -f /usr/share/zsh/site-functions/_coldrun
+          test -f /usr/share/fish/vendor_completions.d/coldrun.fish
+          COMP_WORDS="coldrun sc" COMP_CWORD=1 _COLDRUN_COMPLETE=complete_bash coldrun | grep -qx scan
+          # user namespaces are usually blocked inside a CI container; the output is for the log
+          coldrun doctor || true

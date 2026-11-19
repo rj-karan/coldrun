@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import importlib.util
 import os
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -58,3 +59,14 @@ def test_completion_callback_answers(shell: str, env: dict[str, str], want: str)
         timeout=60,
     )
     assert want in res.stdout, res.stdout + res.stderr
+
+
+def test_aur_release_pkgver_matches_the_project_version() -> None:
+    root = GEN.parents[1]
+    found = re.search(r'^version = "([^"]+)"', (root / "pyproject.toml").read_text(), re.MULTILINE)
+    assert found is not None
+    version = found.group(1)
+    pkgbuild = (root / "packaging" / "aur" / "coldrun" / "PKGBUILD").read_text()
+    srcinfo = (root / "packaging" / "aur" / "coldrun" / ".SRCINFO").read_text()
+    assert f"\npkgver={version}\n" in pkgbuild, "bump pkgver in the release PR"
+    assert f"pkgver = {version}" in srcinfo, "regenerate .SRCINFO"

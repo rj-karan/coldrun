@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- AUR packages `coldrun` (tagged release) and `coldrun-git` in `packaging/aur/`, installing the man page and completions. A CI job builds both in an Arch container from the checkout, runs `namcap`, checks `.SRCINFO`, installs the release package and runs it (#37).
 - Documentation site at https://zororj.me/coldrun/ (mkdocs-material): overview, usage, threat model, runners and how to write one, the JSON report schema, and an FAQ. Built with `--strict` on every docs pull request and deployed from main (#35).
 - Man page and shell completions: `packaging/man/coldrun.1` and bash, zsh and fish scripts in `packaging/completions/`, generated from the CLI by `packaging/generate.py` and kept fresh by a test. The CLI answers completion requests without Typer's `--install-completion`, which would edit the shell rc file (#38).
 - Python 2 runner: a `python2` shebang, or Python 2-only syntax (print statement, `except X, e:`, `print >>`) under a bare `python` shebang or `.py`, runs in a pinned `python:2.7.18-slim` image on the Podman backend. Dependencies come from the same sources as Python 3, with imports read line by line and Python 2's renamed standard library skipped; the image's pip installs them over registry-only network through the bridge. The Python 3 runner now scores a bare `python` shebang 0.9 so Python 2 code can win (#31).
