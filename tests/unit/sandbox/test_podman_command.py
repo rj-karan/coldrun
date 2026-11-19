@@ -98,7 +98,7 @@ def test_allow_host_runs_the_bridge_with_the_image_python(tmp_path: Path) -> Non
     ("kw", "match"),
     [
         ({"image": None}, "ship an image"),
-        ({"listen": (4444,)}, "--listen needs the bwrap backend"),
+        ({"listen": (("127.0.0.1", 4444),)}, "--listen needs the bwrap backend"),
     ],
 )
 def test_refusals(tmp_path: Path, kw: dict[str, object], match: str) -> None:

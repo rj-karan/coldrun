@@ -7,6 +7,7 @@ here or enforced by a backend, and all of this code is covered by tests.
 
 from __future__ import annotations
 
+import ipaddress
 import os
 from dataclasses import dataclass, field
 from enum import Enum
@@ -21,6 +22,8 @@ WORKDIR = "/work"
 #: Where a cached environment is bound inside the sandbox; excluded from --out.
 DEPS_DIR = f"{WORKDIR}/.coldrun/deps"
 _MAX_PORT = 65535
+#: Where --listen binds unless the user names an address: this machine only.
+LISTEN_DEFAULT_ADDR = "127.0.0.1"
 #: Exit code the CLI uses when the sandbox itself could not be set up.
 EXIT_SANDBOX_FAILED = 101
 
@@ -109,8 +112,9 @@ class Policy:
             ``--out`` by the pipeline.
         net: Network policy. ``NONE`` by default.
         allow_hosts: ``HOST[:PORT]`` destinations for ``NetPolicy.ALLOW``.
-        listen: Host ports forwarded into the sandbox for callbacks; the
-            script listens on ``127.0.0.1:PORT`` inside. Not with ``FULL``,
+        listen: ``(host address, port)`` pairs forwarded into the sandbox for
+            callbacks; the script listens on ``127.0.0.1:PORT`` inside. The
+            host side binds the given address only. Not with ``FULL``,
             where the script can bind the port itself.
         rw_paths: Host paths mounted read-write at the same location
             (``--rw``). Validated against the forbidden list.
@@ -133,7 +137,7 @@ class Policy:
     image: str | None = None
     net: NetPolicy = NetPolicy.NONE
     allow_hosts: tuple[str, ...] = ()
-    listen: tuple[int, ...] = ()
+    listen: tuple[tuple[str, int], ...] = ()
     rw_paths: tuple[Path, ...] = ()
     ro_paths: tuple[Path, ...] = ()
     binaries: tuple[Path, ...] = ()
@@ -157,8 +161,10 @@ class Policy:
         if self.listen and self.net is NetPolicy.FULL:
             msg = "listen is pointless with full network: the script can bind the port itself"
             raise PolicyError(msg)
-        if any(not 0 < port <= _MAX_PORT for port in self.listen):
-            msg = f"listen ports must be 1-65535, got {self.listen}"
+        for addr, port in self.listen:
+            check_listen(addr, port)
+        if len({port for _, port in self.listen}) != len(self.listen):
+            msg = f"each --listen port may appear once, got {self.listen}"
             raise PolicyError(msg)
         for p in self.rw_paths:
             check_rw_path(p)
@@ -174,6 +180,29 @@ class Policy:
         if self.tree is not None:
             return f"{WORKDIR}/{self.tree.name}/{self.script.relative_to(self.tree).as_posix()}"
         return f"{WORKDIR}/{self.script.name}"
+
+
+def parse_listen(spec: str) -> tuple[str, int]:
+    """``[ADDR:]PORT`` as ``(address, port)``; the address defaults to loopback only."""
+    addr, _, port = spec.rpartition(":")
+    if not port.isdigit():
+        msg = f"--listen needs [ADDR:]PORT, got {spec!r}"
+        raise PolicyError(msg)
+    pair = (addr or LISTEN_DEFAULT_ADDR, int(port))
+    check_listen(*pair)
+    return pair
+
+
+def check_listen(addr: str, port: int) -> None:
+    """Refuse a port outside 1-65535 or an address that is not a literal IPv4 address."""
+    if not 0 < port <= _MAX_PORT:
+        msg = f"--listen ports must be 1-65535, got {port}"
+        raise PolicyError(msg)
+    try:
+        ipaddress.IPv4Address(addr)
+    except ValueError:
+        msg = f"--listen address must be an IPv4 address such as 10.10.14.5, got {addr!r}"
+        raise PolicyError(msg) from None
 
 
 def check_rw_path(path: Path) -> None:

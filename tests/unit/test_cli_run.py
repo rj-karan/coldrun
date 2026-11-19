@@ -115,9 +115,13 @@ def test_listen_is_passed_and_refused_with_full_network(monkeypatch: pytest.Monk
 
     monkeypatch.setattr(pipeline, "run", fake_run)
     assert (
-        CliRunner().invoke(cli.app, ["run", "t.sh", "--listen", "4444", "--listen", "80"]).exit_code
+        CliRunner()
+        .invoke(cli.app, ["run", "t.sh", "--listen", "4444", "--listen", "10.10.14.5:80"])
+        .exit_code
         == 0
     )
-    assert seen[0].listen == [4444, 80]
+    assert seen[0].listen == [("127.0.0.1", 4444), ("10.10.14.5", 80)]
+    bad = CliRunner().invoke(cli.app, ["run", "t.sh", "--listen", "target.example:80"])
+    assert bad.exit_code == 2 and "IPv4 address" in bad.output
     result = CliRunner().invoke(cli.app, ["run", "t.sh", "--net", "full", "--listen", "1"])
     assert result.exit_code == 2 and "not needed" in result.output

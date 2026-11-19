@@ -327,7 +327,7 @@ def test_tree_is_bound_read_only_instead_of_the_lone_script(tmp_path: Path) -> N
 
 
 def test_listen_ports_ride_the_bridge_as_inherited_fds(tmp_path: Path) -> None:
-    pol = mkpolicy(tmp_path, listen=(4444, 8080))
+    pol = mkpolicy(tmp_path, listen=(("127.0.0.1", 4444), ("10.10.14.5", 8080)))
     cmd = backend().command(pol, ["nc"], tiocsti_blocked=False, listen_fds={4444: 7, 8080: 9})
     assert "--share-net" not in cmd and "--proxy" not in cmd
     tail = cmd[cmd.index("--") + 1 :]
@@ -356,7 +356,7 @@ def test_run_with_listen_opens_host_sockets_and_passes_them(
     free.close()
     monkeypatch.setattr(bw.BwrapBackend, "probe", lambda self: None)
     monkeypatch.setattr(bw.BwrapBackend, "_exec", fake_exec)
-    assert backend().run(mkpolicy(tmp_path, listen=(port,)), ["nc"]) == 0
+    assert backend().run(mkpolicy(tmp_path, listen=(("127.0.0.1", port),)), ["nc"]) == 0
     fds = seen["fds"]
     assert isinstance(fds, tuple) and len(fds) == 1
     assert f"{fds[0]}:{port}" in seen["cmd"]  # type: ignore[operator]
@@ -367,8 +367,8 @@ def test_run_with_listen_opens_host_sockets_and_passes_them(
     busy.bind(("127.0.0.1", port))
     busy.listen(1)
     try:
-        with pytest.raises(SandboxError, match="cannot listen on host port"):
-            backend().run(mkpolicy(tmp_path, listen=(port,)), ["nc"])
+        with pytest.raises(SandboxError, match=r"cannot listen on 127\.0\.0\.1:"):
+            backend().run(mkpolicy(tmp_path, listen=(("127.0.0.1", port),)), ["nc"])
     finally:
         busy.close()
 

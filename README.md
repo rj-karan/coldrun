@@ -90,7 +90,7 @@ the script untouched.
 |---|---|---|
 | `--net none\|allow\|full` | `none` | Network policy inside the sandbox |
 | `--allow-host HOST[:PORT]` | none | Permit one destination; repeatable; implies `--net allow`. The sandbox keeps an empty network namespace and reaches the host through a proxy that connects only to the list, so there is no DNS for anything else. Clients must honour `https_proxy` (curl, wget, requests, uv do; raw sockets need `--net full`) |
-| `--listen PORT` | none | Forward one host port into the sandbox for callbacks and reverse shells; repeatable. The script listens on `127.0.0.1:PORT` inside; the rest of the network stays closed |
+| `--listen [ADDR:]PORT` | none | Forward one port into the sandbox for callbacks and reverse shells; repeatable. The host side binds `127.0.0.1` unless you give an address: use your VPN address (or `0.0.0.0`) so a target can reach it. The script listens on `127.0.0.1:PORT` inside; the rest of the network stays closed |
 | `--rw PATH` | none | Mount one host path read-write; repeatable. `/`, `$HOME` and credential directories are refused |
 | `--out DIR` | `./coldrun-out` | Where files the script writes in `/work` are copied on exit |
 | `--backend bwrap\|podman` | auto | Force a sandbox backend; runners that ship an image use Podman, the rest bubblewrap |

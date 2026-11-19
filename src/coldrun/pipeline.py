@@ -89,7 +89,7 @@ class RunOptions:
     args: list[str] = field(default_factory=list)
     net: NetPolicy = NetPolicy.NONE
     allow_hosts: list[str] = field(default_factory=list)
-    listen: list[int] = field(default_factory=list)
+    listen: list[tuple[str, int]] = field(default_factory=list)
     rw: list[Path] = field(default_factory=list)
     out: Path = Path("./coldrun-out")
     backend: str | None = None

@@ -80,18 +80,18 @@ def _etc_files(net: NetPolicy) -> tuple[str, ...]:
     return files
 
 
-def _host_listener(port: int) -> socket.socket:
-    """A listening socket on every host interface, handed into the sandbox for ``--listen``."""
-    # nosemgrep -- all interfaces on purpose: the callback comes from the target machine
+def _host_listener(addr: str, port: int) -> socket.socket:
+    """A listening socket on the address the user named, handed into the sandbox."""
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     try:
-        sock.bind(("0.0.0.0", port))  # noqa: S104
+        sock.bind((addr, port))
         sock.listen(16)
     except OSError as exc:
         sock.close()
         raise SandboxError(
-            f"cannot listen on host port {port}: {exc.strerror}.", "Pick another --listen port."
+            f"cannot listen on {addr}:{port}: {exc.strerror}.",
+            "Pick another --listen port, or an address this machine has.",
         ) from exc
     return sock
 
@@ -112,7 +112,7 @@ def _bridge(
         url = f"http://127.0.0.1:{GUEST_PORT}"
         env = dict.fromkeys(("http_proxy", "https_proxy", "HTTP_PROXY", "HTTPS_PROXY"), url)
         opts += ["--proxy", f"{GUEST_PORT}:{_GUEST_SOCK_DIR}/{proxy_sock.name}"]
-    for port in policy.listen:
+    for _, port in policy.listen:
         if port not in listen_fds:
             msg = f"listen port {port} has no host socket"
             raise SandboxError(msg, "This is a coldrun bug; please open an issue.")
@@ -223,7 +223,7 @@ class BwrapBackend:
             proxy_sock: The host-side allowlist proxy socket; required for
                 ``NetPolicy.ALLOW``. The sandbox reaches it through the
                 bridge on ``127.0.0.1`` and the usual proxy variables.
-            listen_fds: ``{port: fd}`` of listening sockets the host opened
+            listen_fds: ``{port: fd}`` of the listening sockets the host opened
                 for ``policy.listen``; the bridge accepts on them inside.
         """
         if policy.image is not None:
@@ -324,8 +324,9 @@ class BwrapBackend:
             proxy = None
             if policy.net == NetPolicy.ALLOW:
                 proxy = AllowProxy(policy.allow_hosts, Path(sock_dir)).start()
-            listeners = [_host_listener(port) for port in policy.listen]
-            fds = {port: sock.fileno() for port, sock in zip(policy.listen, listeners, strict=True)}
+            listeners = [_host_listener(addr, port) for addr, port in policy.listen]
+            ports = [port for _, port in policy.listen]
+            fds = {port: sock.fileno() for port, sock in zip(ports, listeners, strict=True)}
             try:
                 cmd = self.command(
                     policy, argv, proxy_sock=proxy.path if proxy else None, listen_fds=fds

@@ -134,7 +134,7 @@ _SEVERITY_STYLE = {
 }
 
 
-def default_blocked(net: str, listen: Sequence[int] = ()) -> list[str]:
+def default_blocked(net: str, listen: Sequence[tuple[str, int]] = ()) -> list[str]:
     """The protections every run gets, phrased for the report."""
     blocked = [
         "home directory, SSH keys, browser profiles, cloud credentials",
@@ -147,7 +147,8 @@ def default_blocked(net: str, listen: Sequence[int] = ()) -> list[str]:
     elif net == "allow":
         blocked.insert(0, "network except --allow-host destinations")
     if listen:
-        blocked[0] += f" (inbound allowed on --listen port {', '.join(map(str, listen))})"
+        where = ", ".join(f"{addr}:{port}" for addr, port in listen)
+        blocked[0] += f" (inbound allowed on --listen {where})"
     return blocked
 
 

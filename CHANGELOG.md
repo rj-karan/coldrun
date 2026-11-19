@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+
+- `--listen` bound every host interface in v0.4.0, so a callback port was open on any network the machine was on. It now binds `127.0.0.1` unless given an address: `--listen 10.10.14.5:4444` for a VPN interface, or `--listen 0.0.0.0:4444` to choose every interface on purpose. Addresses must be literal IPv4 and each port may appear once (#100).
+
 ### Added
 
 - Podman backend for runners that ship a container image: rootless, `--cap-drop=all`, no new privileges, read-only root, private `/tmp` and `/run`, `--userns=keep-id`, a pid limit, network off unless asked, scrubbed environment, and `--allow-host` through the same host-side proxy (the bridge now also runs on Python 2.7). Backends are picked per runner: image runners go to Podman, host-toolchain runners to bubblewrap; a mismatched `--backend` is a clear error. `--listen` stays bubblewrap-only (#30).

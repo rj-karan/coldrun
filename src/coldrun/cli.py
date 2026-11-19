@@ -15,7 +15,8 @@ from coldrun import cache as cache_mod
 from coldrun import doctor as doctor_mod
 from coldrun import pipeline as pipeline_mod
 from coldrun.report import make_console
-from coldrun.sandbox import NetPolicy
+from coldrun.sandbox import NetPolicy, PolicyError
+from coldrun.sandbox.base import parse_listen
 
 app = typer.Typer(
     name="coldrun",
@@ -115,8 +116,11 @@ def run(
     allow_host: list[str] = typer.Option(
         [], "--allow-host", help="Permit one HOST[:PORT]; repeatable; implies --net allow."
     ),
-    listen: list[int] = typer.Option(
-        [], "--listen", help="Forward one host port into the sandbox for callbacks; repeatable."
+    listen: list[str] = typer.Option(
+        [],
+        "--listen",
+        help="Forward [ADDR:]PORT into the sandbox for callbacks; ADDR defaults to 127.0.0.1."
+        " Give your VPN address (or 0.0.0.0) to accept from a target. Repeatable.",
     ),
     rw: list[Path] = typer.Option([], "--rw", help="Mount one host path read-write; repeatable."),
     out: Path = typer.Option(
@@ -136,6 +140,11 @@ def run(
             "--net allow and --allow-host go together; --net full ignores the list.", err=True
         )
         raise typer.Exit(code=2)
+    try:
+        listen_on = [parse_listen(spec) for spec in listen]
+    except PolicyError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=2) from exc
     if listen and net is NetPolicy.FULL:
         typer.echo(
             "--listen is not needed with --net full: the script can bind the port.", err=True
@@ -146,7 +155,7 @@ def run(
         args=list(ctx.args),
         net=net,
         allow_hosts=allow_host,
-        listen=listen,
+        listen=listen_on,
         rw=rw,
         out=out,
         backend=backend,

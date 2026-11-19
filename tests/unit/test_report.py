@@ -160,9 +160,9 @@ def test_make_console_variants() -> None:
     assert rich.stderr is True
 
 
-def test_blocked_mentions_listen_ports() -> None:
-    assert (
-        default_blocked("none", [4444, 53])[0]
-        == "all network access (inbound allowed on --listen port 4444, 53)"
+def test_blocked_mentions_listen_addresses() -> None:
+    listen = [("127.0.0.1", 4444), ("10.10.14.5", 53)]
+    assert default_blocked("none", listen)[0] == (
+        "all network access (inbound allowed on --listen 127.0.0.1:4444, 10.10.14.5:53)"
     )
     assert default_blocked("none")[0] == "all network access"
