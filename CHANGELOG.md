@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.1] - 2026-11-20
+
+Installs from PyPI vet scripts again: the rule files are back in the package. Upgrade from any version between 0.3.0 and 1.0.0.
+
 ### Fixed
 
 - The YARA and Semgrep rule files were missing from every wheel and sdist from 0.3.0 to 1.0.0, so installs from PyPI vetted scripts with no rules and reported them as low risk. A top-level `rules` symlink made the build drop them; it is gone. Missing rule files are now a medium finding that asks before running, and CI installs the built wheel and checks it refuses a malicious sample. The sandbox itself was not affected (#110).
@@ -117,7 +121,8 @@ Foundation release (published under the former name `muzzle`): an empty `muzzle 
 - Issue templates (bug, feature, new runner, false positive), pull request template, CODEOWNERS, CONTRIBUTING, SECURITY and CODE_OF_CONDUCT (#4).
 - CLAUDE.md with the repo workflow, branch protection, code quality bar and the hard security rules for agents and contributors (#8).
 
-[Unreleased]: https://github.com/rj-karan/coldrun/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/rj-karan/coldrun/compare/v1.0.1...HEAD
+[1.0.1]: https://github.com/rj-karan/coldrun/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/rj-karan/coldrun/compare/v0.4.0...v1.0.0
 [0.4.0]: https://github.com/rj-karan/coldrun/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/rj-karan/coldrun/compare/v0.2.0...v0.3.0
