@@ -53,6 +53,8 @@ jobs:
 
       - name: Install the release package and use it
         run: |
+          # the archlinux image skips man pages to stay small; a real install keeps them
+          sed -i '/^NoExtract/d' /etc/pacman.conf
           pacman -U --noconfirm /home/builder/aur/coldrun/*.pkg.tar.zst
           coldrun --version
           man -w coldrun
