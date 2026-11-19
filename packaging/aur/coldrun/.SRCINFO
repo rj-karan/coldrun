@@ -1,6 +1,6 @@
 pkgbase = coldrun
 	pkgdesc = Fetch, vet and sandbox any downloaded script in one command
-	pkgver = 0.4.0
+	pkgver = 1.0.0
 	pkgrel = 1
 	url = https://github.com/rj-karan/coldrun
 	arch = any
@@ -20,7 +20,7 @@ pkgbase = coldrun
 	optdepends = npm: Node dependencies
 	optdepends = go: Go scripts
 	optdepends = ruby: Ruby scripts and gems
-	source = coldrun-0.4.0.tar.gz::https://github.com/rj-karan/coldrun/archive/refs/tags/v0.4.0.tar.gz
-	sha256sums = 819775765e8dc31eb73f4896dcb9c6850ad6649957be561ea4832bdc951fd1cc
+	source = coldrun-1.0.0.tar.gz::https://github.com/rj-karan/coldrun/archive/refs/tags/v1.0.0.tar.gz
+	sha256sums = SKIP
 
 pkgname = coldrun

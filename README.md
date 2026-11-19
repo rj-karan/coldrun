@@ -136,12 +136,12 @@ not be set up; run `coldrun doctor`) and `102` (dependency resolution failed).
 
 ## Status
 
-v0.4.0 completes milestone M4 of the [spec](docs/SPEC.md). Python and Bash
-scripts run sandboxed with their dependencies resolved. The script and its
-dependencies are vetted first. Network access can be limited to named hosts
-with `--allow-host`, callbacks arrive through `--listen`, and scripts can come
-from archives, GitHub repositories, gists and exploit-db. Podman and more
-runners (M5) follow.
+v1.0.0 completes every milestone of the [spec](docs/SPEC.md). Python 3, Python 2,
+Bash, Node, Go and Ruby scripts run sandboxed with their dependencies resolved,
+on bubblewrap or, for runners that ship an image, rootless Podman. The script, its
+dependencies and its GitHub source are vetted first. Network access can be limited
+to named hosts with `--allow-host`, callbacks arrive through `--listen`, and scripts
+can come from archives, GitHub repositories, gists and exploit-db.
 
 ## Contributing
 
