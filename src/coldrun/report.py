@@ -21,6 +21,7 @@ from coldrun.vet.findings import Severity
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
+    from pathlib import Path
 
     from coldrun.detect import Detection
     from coldrun.fetch.base import Fetched
@@ -175,7 +176,8 @@ def render(report: Report, console: Console) -> None:
     if report.deps is not None:
         table.add_row("dependencies", _format_deps(report.deps))
     if report.findings:
-        table.add_row("findings", _format_findings(report.findings))
+        base = report.source.quarantine if report.source is not None else None
+        table.add_row("findings", _format_findings(report.findings, base))
     if report.verdict is not None:
         table.add_row("verdict", report.verdict)
     if report.env is not None:
@@ -241,13 +243,17 @@ def _format_deps(deps: DepSet) -> str:
     return "; ".join(parts) + f"  (from {deps.source})"
 
 
-def _format_findings(findings: Sequence[Finding]) -> Text:
+def _format_findings(findings: Sequence[Finding], base: Path | None) -> Text:
+    """One line per finding; files inside the quarantine ``base`` are shown relative to it."""
     text = Text()
     for i, f in enumerate(sorted(findings, key=lambda x: -x.severity.rank)):
         if i:
             text.append("\n")
+        where = f.location()
+        if base is not None and f.file.is_relative_to(base):
+            where = where.removeprefix(f"{base}/")
         text.append(f"{f.severity.value:<6}", style=_SEVERITY_STYLE[f.severity])
-        text.append(f" {f.rule_id}  {f.location()}: {f.message}")
+        text.append(f" {f.rule_id}  {where}: {f.message}")
     return text
 
 

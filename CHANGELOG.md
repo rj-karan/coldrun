@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Findings in the report show files relative to the quarantine (`install.sh:3`, `src/tool/run.sh:3`) instead of the full cache path; packages and the JSON report are unchanged (#129).
+
 ### Fixed
 
 - Installing Python dependencies no longer prints `BrokenPipeError` tracebacks: the allow-host proxy now treats a client that hangs up before its reply (uv races connections) as a normal end, not an error (#127).

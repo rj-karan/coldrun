@@ -166,3 +166,19 @@ def test_blocked_mentions_listen_addresses() -> None:
         "all network access (inbound allowed on --listen 127.0.0.1:4444, 10.10.14.5:53)"
     )
     assert default_blocked("none")[0] == "all network access"
+
+
+def test_findings_show_paths_relative_to_the_quarantine(tmp_path: Path) -> None:
+    report = Report(source=fetched(tmp_path))
+    report.findings = [
+        Finding("yara.x", Severity.HIGH, tmp_path / "y.py", "inside", line=3),
+        Finding("yara.y", Severity.LOW, tmp_path / "src" / "tool" / "run.sh", "in a tree", line=1),
+        Finding("guarddog.z", Severity.LOW, Path("PyYAML"), "a package"),
+    ]
+    con, buf = console()
+    render(report, con)
+    out = buf.getvalue()
+    assert "yara.x  y.py:3: inside" in out
+    assert "yara.y  src/tool/run.sh:1: in a tree" in out
+    assert "guarddog.z  PyYAML: a package" in out
+    assert str(tmp_path) not in out
