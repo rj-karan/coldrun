@@ -1,0 +1,96 @@
+.TH COLDRUN 1 "" "coldrun" "User Commands"
+.SH NAME
+coldrun \- fetch, vet and sandbox any downloaded script in one command
+.SH SYNOPSIS
+.B coldrun
+\fICOMMAND\fR [\fIOPTIONS\fR] \fISOURCE\fR [\-\- \fISCRIPT ARGS\fR]
+.SH DESCRIPTION
+coldrun fetches a script into quarantine, works out its language and
+dependencies, vets the script and its dependencies, then runs it in a
+sandbox with no network, no home directory and a read\-only root unless
+you allow more. The sandbox is the protection; the scan is the warning.
+.SH COMMANDS
+.SS "coldrun run SOURCE"
+Fetch, vet, sandbox and run SOURCE. Everything after \-\- goes to the script.
+.TP
+.B \-\-net \fIVALUE\fR
+Network policy inside the sandbox.
+.TP
+.B \-\-allow\-host \fIVALUE\fR
+Permit one HOST[:PORT]; repeatable; implies \-\-net allow.
+.TP
+.B \-\-listen \fIVALUE\fR
+Forward [ADDR:]PORT into the sandbox for callbacks; ADDR defaults to 127.0.0.1. Give your VPN address (or 0.0.0.0) to accept from a target. Repeatable.
+.TP
+.B \-\-rw \fIVALUE\fR
+Mount one host path read\-write; repeatable.
+.TP
+.B \-\-out \fIVALUE\fR
+Where files the script writes are copied on exit.
+.TP
+.B \-\-backend \fIVALUE\fR
+Force a sandbox backend: bwrap or podman.
+.TP
+.B \-\-lang \fIVALUE\fR
+Override type detection.
+.TP
+.B \-\-yes
+Skip the confirmation on medium risk.
+.TP
+.B \-\-force
+Run despite a high\-risk verdict.
+.TP
+.B \-\-json
+Print one JSON document on stdout (docs/report.schema.json); human output goes to stderr.
+.SS "coldrun scan SOURCE"
+Vet SOURCE and print the findings and verdict without building a sandbox or running it.
+.TP
+.B \-\-lang \fIVALUE\fR
+Override type detection.
+.TP
+.B \-\-json
+Print one JSON document on stdout (docs/report.schema.json); human output goes to stderr.
+.SS "coldrun deps SOURCE"
+Print the resolved dependencies of SOURCE without installing or running anything.
+.TP
+.B \-\-lang \fIVALUE\fR
+Override type detection.
+.TP
+.B \-\-json
+Print one JSON document on stdout (docs/report.schema.json); human output goes to stderr.
+.SS "coldrun doctor"
+Check bwrap, podman, uv and kernel support, and say how to fix what is missing.
+.SS "coldrun cache"
+Manage cached dependency environments.
+.TP
+.B coldrun cache list
+Show cached environments: key, runner, packages, size.
+.TP
+.B coldrun cache clean
+Delete every cached environment.
+.SH EXIT STATUS
+The script's own exit code, except:
+.TP
+.B 2
+usage error, or the source could not be fetched or recognised
+.TP
+.B 100
+refused by vetting (high risk without \-\-force, or medium risk declined)
+.TP
+.B 101
+the sandbox could not be set up; run \fBcoldrun doctor\fR
+.TP
+.B 102
+dependencies could not be resolved or installed
+.SH FILES
+.TP
+.I ~/.cache/coldrun/
+quarantine directories and cached dependency environments
+.TP
+.I ~/.config/coldrun/config.toml
+configuration
+.SH SEE ALSO
+.BR bwrap (1),
+.BR podman (1)
+.PP
+https://github.com/rj\-karan/coldrun

@@ -9,6 +9,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import typer
+from typer._completion_classes import completion_init
 
 from coldrun import __version__
 from coldrun import cache as cache_mod
@@ -17,6 +18,10 @@ from coldrun import pipeline as pipeline_mod
 from coldrun.report import make_console
 from coldrun.sandbox import NetPolicy, PolicyError
 from coldrun.sandbox.base import parse_listen
+
+# The shipped completion scripts call back with _COLDRUN_COMPLETE; this answers them without
+# add_completion, whose --install-completion would edit the user's shell rc file.
+completion_init()
 
 app = typer.Typer(
     name="coldrun",
@@ -126,7 +131,9 @@ def run(
     out: Path = typer.Option(
         Path("./coldrun-out"), "--out", help="Where files the script writes are copied on exit."
     ),
-    backend: str | None = typer.Option(None, "--backend", help="Force a sandbox backend: bwrap."),
+    backend: str | None = typer.Option(
+        None, "--backend", help="Force a sandbox backend: bwrap or podman."
+    ),
     lang: str | None = typer.Option(None, "--lang", help="Override type detection."),
     yes: bool = typer.Option(False, "--yes", help="Skip the confirmation on medium risk."),
     force: bool = typer.Option(False, "--force", help="Run despite a high-risk verdict."),
