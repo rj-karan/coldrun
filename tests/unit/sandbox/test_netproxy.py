@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import ast
 import socket
 import sys
 import threading
@@ -207,3 +208,14 @@ def test_bridge_pump_tolerates_closed_sockets() -> None:
     a.close()
     b.close()
     bridge._pump(a, b)  # both sides already closed: returns quietly
+
+
+def test_bridge_stays_python2_parseable() -> None:
+    # it runs on the Python 2.7 image too; these are the constructs Python 2 rejects
+    src = Path(bridge.__file__).read_text()
+    assert "from __future__ import annotations" not in src
+    assert src.isascii()
+    tree = ast.parse(src)
+    assert not [n for n in ast.walk(tree) if isinstance(n, (ast.JoinedStr, ast.NamedExpr))]
+    funcs = [n for n in ast.walk(tree) if isinstance(n, ast.FunctionDef)]
+    assert funcs and not [f for f in funcs if f.returns or any(a.annotation for a in f.args.args)]

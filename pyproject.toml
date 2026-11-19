@@ -51,6 +51,7 @@ coldrun = "coldrun.cli:app"
 [project.entry-points."coldrun.runners"]
 sh = "coldrun.runners.shell:ShellRunner"
 python = "coldrun.runners.python:PythonRunner"
+python2 = "coldrun.runners.python2:Python2Runner"
 node = "coldrun.runners.node:NodeRunner"
 go = "coldrun.runners.go:GoRunner"
 ruby = "coldrun.runners.ruby:RubyRunner"
@@ -137,6 +138,7 @@ ignore = [
   "ANN",     # type comments: the file must also parse under Python 2.7
   "UP",      # same: no f-strings, socket.error kept for Python 2
   "SIM105",  # no contextlib.suppress on Python 2
+  "I002",    # no `from __future__ import annotations`: Python 2 cannot parse it
 ]
 "src/coldrun/cli.py" = [
   "B008",    # typer.Option() in defaults is the Typer idiom

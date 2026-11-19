@@ -62,13 +62,14 @@ class PythonRunner:
     """Detect, resolve, install and run Python 3 scripts."""
 
     name = "python"
+    interpreter = "python3"
 
     def detect(self, path: Path) -> float:
-        """A python shebang is certain; a ``.py`` extension alone is likely."""
+        """A python3 shebang is certain; a bare ``python`` one or ``.py`` alone is likely."""
         shebang = read_shebang(path)
         interp = interpreter_from_shebang(shebang) if shebang else None
         if interp and _PY_SHEBANG.match(interp):
-            return 1.0
+            return 0.9 if interp == "python" else 1.0  # bare python may be Python 2 code
         if shebang is not None:
             return 0.0
         return 0.8 if path.suffix.lower() == ".py" else 0.0
@@ -81,15 +82,17 @@ class PythonRunner:
                 line[2:] if line.startswith("# ") else line[1:] for line in m.group(1).splitlines()
             )
             pkgs = tomllib.loads(body).get("dependencies", [])
-            return DepSet("pypi", tuple(pkgs), (), "python3", "PEP 723")
+            return DepSet("pypi", tuple(pkgs), (), self.interpreter, "PEP 723")
         req = path.parent / "requirements.txt"
         if req.is_file():
             lines = (ln.split("#", 1)[0].strip() for ln in req.read_text().splitlines())
             pkgs = tuple(ln for ln in lines if ln and not ln.startswith("-"))
-            return DepSet("pypi", pkgs, (), "python3", "requirements.txt")
-        return DepSet(
-            "pypi", tuple(_third_party_imports(text, path.parent)), (), "python3", "inferred"
-        )
+            return DepSet("pypi", pkgs, (), self.interpreter, "requirements.txt")
+        pkgs = tuple(self._imports(text, path.parent))
+        return DepSet("pypi", pkgs, (), self.interpreter, "inferred")
+
+    def _imports(self, text: str, beside: Path) -> list[str]:
+        return _third_party_imports(text, beside)
 
     def install_cmd(self, deps: DepSet) -> list[str]:
         """``uv pip install --target`` into the deps dir; empty when nothing is needed."""
