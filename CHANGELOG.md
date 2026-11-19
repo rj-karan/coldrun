@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Installing Python dependencies no longer prints `BrokenPipeError` tracebacks: the allow-host proxy now treats a client that hangs up before its reply (uv races connections) as a normal end, not an error (#127).
+
 ### Added
 
 - Every GitHub release carries a tested Arch package (`coldrun.pkg.tar.zst`, plus the versioned file and a checksum), built from the tag in an Arch container after the release; install it with `pacman -U`. The AUR PKGBUILD is pinned to the v1.0.1 tarball (#118).

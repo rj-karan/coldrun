@@ -77,7 +77,8 @@ class AllowProxy:
             threading.Thread(target=self._handle, args=(client,), daemon=True).start()
 
     def _handle(self, client: socket.socket) -> None:
-        with client:
+        # a client hanging up mid-handshake is normal (uv races connections), not an error
+        with client, contextlib.suppress(OSError):
             head = _read_head(client)
             if head is None:
                 client.sendall(_BAD)
