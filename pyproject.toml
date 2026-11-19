@@ -66,6 +66,7 @@ dev = [
   "yara-python>=4.5",
   "jsonschema>=4.23",
 ]
+docs = ["mkdocs-material>=9.5"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/coldrun"]

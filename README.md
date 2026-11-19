@@ -58,6 +58,8 @@ run reuses that environment.
 | No daemon, no image to build, no root | yes | no | yes | yes |
 | Works on a script you have not read yet | no | no | no | yes |
 
+Documentation: https://zororj.me/coldrun/
+
 ## Install
 
 ```
