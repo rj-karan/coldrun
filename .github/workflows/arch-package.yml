@@ -28,7 +28,7 @@ jobs:
     steps:
       - name: Install build, runtime and test dependencies
         run: >
-          pacman -Syu --noconfirm --needed git github-cli namcap pacman-contrib
+          pacman -Syu --noconfirm --needed git github-cli namcap pacman-contrib man-db
           python-build python-installer python-hatchling python-typer python-rich uv bubblewrap
           python-yara
 
