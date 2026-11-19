@@ -13,9 +13,16 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/licence-MIT-blue.svg" alt="Licence: MIT"></a>
 </p>
 
-```
-coldrun run https://github.com/someone/tool/blob/main/script.py -- --target 10.10.11.5
-```
+<p align="center">
+  <a href="https://zororj.me/coldrun/">Documentation</a> ·
+  <a href="#install">Install</a> ·
+  <a href="#usage">Usage</a> ·
+  <a href="https://zororj.me/coldrun/threat-model/">Threat model</a>
+</p>
+
+<p align="center">
+  <img src="docs/assets/screenshots/run.png" width="820" alt="coldrun running a Python proof of concept: it found three third-party imports, reused their cached environment, ran the script with no network and no home directory, and exited 0.">
+</p>
 
 You found a script on GitHub, exploit-db or a CTF write-up. The usual loop is:
 read it, make a venv, guess the packages, install them on your machine, and
@@ -24,29 +31,40 @@ fetches the script into quarantine, works out what it needs, installs that
 inside a bubblewrap sandbox, and runs it there: no network unless you say so,
 no home directory, no credentials, nothing written outside `/work`.
 
-## What a run looks like
+The script above has three third-party imports and no requirements file.
+coldrun found them, installed them inside the sandbox on the first run, and
+reuses that environment on every run after, like this one.
 
 ```
-$ coldrun run ./imports.py
-imports ok requests yaml BeautifulSoup
-source        ./imports.py  (file)
-sha256        a785b1f5b2d77f22c365e3c0090002d2daa76451a79fa987a1c62c3d100c0eac
-runner        python  (100%: shebang /usr/bin/env python3, extension .py)
-dependencies  python3; pypi: PyYAML, beautifulsoup4, requests  (from inferred)
-verdict       low
-environment   fca453c8009e3f3b (installed)
-sandbox       bwrap, network none
-blocked       all network access
-              home directory, SSH keys, browser profiles, cloud credentials
-              Docker socket and D-Bus session
-              writes outside /work and /tmp
-              capabilities and privilege escalation
-exit code     0
+coldrun run https://github.com/someone/tool/blob/main/script.py -- --target 10.10.11.5
 ```
 
-The script had three third-party imports and no manifest. coldrun inferred
-them, installed them with uv inside the sandbox, ran the script, and the next
-run reuses that environment.
+## What it looks like
+
+**It refuses what it should.** A pasted one-line installer pipes a download into
+a shell and edits `~/.bashrc`. Vetting stops it before anything runs.
+
+<p align="center">
+  <img src="docs/assets/screenshots/refused.png" width="820" alt="coldrun refusing install.sh with exit code 100: two high findings, a download piped into a shell on line 3 and an append to the shell start-up file on line 4.">
+</p>
+
+**Only the hosts you name.** With `--allow-host` the sandbox keeps an empty
+network; a proxy on your side connects to the listed hosts and nothing else,
+with no DNS for the rest.
+
+<p align="center">
+  <img src="docs/assets/screenshots/allow-host.png" width="820" alt="coldrun running fetch.sh with --allow-host api.github.com:443: api.github.com is reachable and example.com is blocked by coldrun.">
+</p>
+
+**One check before the first run.** `coldrun doctor` checks bubblewrap, user
+namespaces, the terminal and the vetting tools, and prints the fix for anything
+missing.
+
+<p align="center">
+  <img src="docs/assets/screenshots/doctor.png" width="820" alt="coldrun doctor: bubblewrap, user namespaces, TIOCSTI, uv, guarddog, semgrep, yara and the cache pass; podman warns that it is only needed for Python 2; ready to run.">
+</p>
+
+The screenshots are real runs, rendered by `scripts/screenshots.py`.
 
 ## Why not just a venv, Docker or firejail
 
@@ -57,8 +75,6 @@ run reuses that environment.
 | Network off by default | no | no | no | yes |
 | No daemon, no image to build, no root | yes | no | yes | yes |
 | Works on a script you have not read yet | no | no | no | yes |
-
-Documentation: https://zororj.me/coldrun/
 
 ## Install
 

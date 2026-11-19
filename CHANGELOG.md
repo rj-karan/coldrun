@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- The README and docs show screenshots of real runs (a run, a refusal, `--allow-host`, `doctor`), rendered by `scripts/screenshots.py` in the project's style (#126).
 - Findings in the report show files relative to the quarantine (`install.sh:3`, `src/tool/run.sh:3`) instead of the full cache path; packages and the JSON report are unchanged (#129).
 
 ### Fixed
