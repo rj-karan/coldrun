@@ -18,7 +18,7 @@ optdepends=(
   'ruby: Ruby scripts and gems'
 )
 source=("$pkgname-$pkgver.tar.gz::$url/archive/refs/tags/v$pkgver.tar.gz")
-sha256sums=('SKIP')  # updpkgsums after the v$pkgver tag exists
+sha256sums=('438077a9593aab16f08d8109024e5fa74c58a0a50e0b35b44f03f62ca1697ab4')
 
 build() {
   cd "$pkgname-$pkgver"

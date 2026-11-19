@@ -20,6 +20,13 @@ uv tool install semgrep guarddog # Python script rules and dependency vetting
 coldrun doctor                   # checks bubblewrap, user namespaces and the rest
 ```
 
+On Arch and Omarchy, every release also carries a pacman package:
+
+```sh
+curl -LO https://github.com/rj-karan/coldrun/releases/latest/download/coldrun.pkg.tar.zst
+sudo pacman -U coldrun.pkg.tar.zst
+```
+
 Linux only. Needs Python 3.10 or newer and
 [bubblewrap](https://github.com/containers/bubblewrap): `pacman -S bubblewrap`
 on Arch and Omarchy, `apt install bubblewrap` on Debian, Kali and Ubuntu.

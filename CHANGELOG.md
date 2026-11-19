@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Every GitHub release carries a tested Arch package (`coldrun.pkg.tar.zst`, plus the versioned file and a checksum), built from the tag in an Arch container after the release; install it with `pacman -U`. The AUR PKGBUILD is pinned to the v1.0.1 tarball (#118).
+
 ## [1.0.1] - 2026-11-20
 
 Installs from PyPI vet scripts again: the rule files are back in the package. Upgrade from any version between 0.3.0 and 1.0.0.

@@ -1,5 +1,8 @@
 # AUR packages
 
+Until the AUR takes new accounts again, `.github/workflows/arch-package.yml` builds the
+release package from each tag, tests it and attaches it to the GitHub release.
+
 - `coldrun/` builds a tagged release from the GitHub tag tarball.
 - `coldrun-git/` builds the latest `main`.
 
