@@ -7,26 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-11-20
+
+Completes milestone M5: Node, Go, Ruby and Python 2 runners, a Podman backend for runners that ship an image, a documentation site, a man page and shell completions, and AUR packages. `uvx coldrun` and `pipx install coldrun` are checked on clean Arch and Kali after every release.
+
 ### Added
 
-- Install check: after every release, and on demand, CI installs the package from PyPI with `uvx` and `pipx` on clean Arch and Kali containers and runs it (#107).
+- Node runner: dependencies from `package.json` beside the script, else `require` and `import` statements (relative paths and builtins skipped); installed with the system `npm --ignore-scripts` over registry-only network and found through `NODE_PATH`. Toolchains come from `/usr/bin`; a Node from mise or nvm is hidden by the sandbox and the error says so (#32).
+- Go runner: dependencies from `go.mod` beside the script, else imports whose first element is a host; `go get` into the cached environment through `proxy.golang.org` and `sum.golang.org` only, then the script is built offline (`GOPROXY=off`) in a temporary module and runs from `/work` (#33).
+- Ruby runner: dependencies from a `Gemfile` beside the script (names), else `require` lines outside the standard library, mapped to gem names where they differ; `gem install` into the cached environment from rubygems.org only, found through `GEM_HOME` with Ruby's own gems still visible (#34).
+- Python 2 runner: a `python2` shebang, or Python 2-only syntax (print statement, `except X, e:`, `print >>`) under a bare `python` shebang or `.py`, runs in a pinned `python:2.7.18-slim` image on the Podman backend. Dependencies come from the same sources as Python 3, with imports read line by line and Python 2's renamed standard library skipped; the image's pip installs them over registry-only network through the bridge. The Python 3 runner now scores a bare `python` shebang 0.9 so Python 2 code can win (#31).
+- Podman backend for runners that ship a container image: rootless, `--cap-drop=all`, no new privileges, read-only root, private `/tmp` and `/run`, `--userns=keep-id`, a pid limit, network off unless asked, scrubbed environment, and `--allow-host` through the same host-side proxy (the bridge now also runs on Python 2.7). Backends are picked per runner: image runners go to Podman, host-toolchain runners to bubblewrap; a mismatched `--backend` is a clear error. `--listen` stays bubblewrap-only (#30).
+- Source signals: a force-push to a GitHub origin in the last 30 days is a medium finding, read from the repository activity API (#91).
+- Man page and shell completions: `packaging/man/coldrun.1` and bash, zsh and fish scripts in `packaging/completions/`, generated from the CLI by `packaging/generate.py` and kept fresh by a test. The CLI answers completion requests without Typer's `--install-completion`, which would edit the shell rc file (#38).
 - AUR packages `coldrun` (tagged release) and `coldrun-git` in `packaging/aur/`, installing the man page and completions. A CI job builds both in an Arch container from the checkout, runs `namcap`, checks `.SRCINFO`, installs the release package and runs it (#37).
 - Documentation site at https://zororj.me/coldrun/ (mkdocs-material): overview, usage, threat model, runners and how to write one, the JSON report schema, and an FAQ. Built with `--strict` on every docs pull request and deployed from main (#35).
-- Man page and shell completions: `packaging/man/coldrun.1` and bash, zsh and fish scripts in `packaging/completions/`, generated from the CLI by `packaging/generate.py` and kept fresh by a test. The CLI answers completion requests without Typer's `--install-completion`, which would edit the shell rc file (#38).
-- Python 2 runner: a `python2` shebang, or Python 2-only syntax (print statement, `except X, e:`, `print >>`) under a bare `python` shebang or `.py`, runs in a pinned `python:2.7.18-slim` image on the Podman backend. Dependencies come from the same sources as Python 3, with imports read line by line and Python 2's renamed standard library skipped; the image's pip installs them over registry-only network through the bridge. The Python 3 runner now scores a bare `python` shebang 0.9 so Python 2 code can win (#31).
+- Install check: after every release, and on demand, CI installs the package from PyPI with `uvx` and `pipx` on clean Arch and Kali containers and runs it (#107).
+
+### Changed
+
+- Installer output now always goes to stderr, so it never mixes with the script's stdout or the `--json` document.
 
 ### Security
 
 - `--listen` bound every host interface in v0.4.0, so a callback port was open on any network the machine was on. It now binds `127.0.0.1` unless given an address: `--listen 10.10.14.5:4444` for a VPN interface, or `--listen 0.0.0.0:4444` to choose every interface on purpose. Addresses must be literal IPv4 and each port may appear once (#100).
-
-### Added
-
-- Podman backend for runners that ship a container image: rootless, `--cap-drop=all`, no new privileges, read-only root, private `/tmp` and `/run`, `--userns=keep-id`, a pid limit, network off unless asked, scrubbed environment, and `--allow-host` through the same host-side proxy (the bridge now also runs on Python 2.7). Backends are picked per runner: image runners go to Podman, host-toolchain runners to bubblewrap; a mismatched `--backend` is a clear error. `--listen` stays bubblewrap-only (#30).
-- Ruby runner: dependencies from a `Gemfile` beside the script (names), else `require` lines outside the standard library, mapped to gem names where they differ; `gem install` into the cached environment from rubygems.org only, found through `GEM_HOME` with Ruby's own gems still visible (#34).
-- Go runner: dependencies from `go.mod` beside the script, else imports whose first element is a host; `go get` into the cached environment through `proxy.golang.org` and `sum.golang.org` only, then the script is built offline (`GOPROXY=off`) in a temporary module and runs from `/work` (#33).
-- Installer output now always goes to stderr, so it never mixes with the script's stdout or the `--json` document.
-- Node runner: dependencies from `package.json` beside the script, else `require` and `import` statements (relative paths and builtins skipped); installed with the system `npm --ignore-scripts` over registry-only network and found through `NODE_PATH`. Toolchains come from `/usr/bin`; a Node from mise or nvm is hidden by the sandbox and the error says so (#32).
-- Source signals: a force-push to a GitHub origin in the last 30 days is a medium finding, read from the repository activity API (#91).
 
 ## [0.4.0] - 2026-11-18
 
@@ -108,7 +112,8 @@ Foundation release (published under the former name `muzzle`): an empty `muzzle 
 - Issue templates (bug, feature, new runner, false positive), pull request template, CODEOWNERS, CONTRIBUTING, SECURITY and CODE_OF_CONDUCT (#4).
 - CLAUDE.md with the repo workflow, branch protection, code quality bar and the hard security rules for agents and contributors (#8).
 
-[Unreleased]: https://github.com/rj-karan/coldrun/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/rj-karan/coldrun/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/rj-karan/coldrun/compare/v0.4.0...v1.0.0
 [0.4.0]: https://github.com/rj-karan/coldrun/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/rj-karan/coldrun/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/rj-karan/coldrun/compare/v0.1.1...v0.2.0
