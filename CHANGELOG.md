@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.2] - 2026-11-20
+
+Cleaner installs and reports, and a ready-made Arch package on every release.
+
+### Added
+
+- Every GitHub release carries a tested Arch package (`coldrun.pkg.tar.zst`, plus the versioned file and a checksum), built from the tag in an Arch container after the release; install it with `pacman -U`. The AUR PKGBUILD is pinned to the v1.0.1 tarball (#118).
+
 ### Changed
 
 - The README and docs show screenshots of real runs (a run, a refusal, `--allow-host`, `doctor`), rendered by `scripts/screenshots.py` in the project's style (#126).
@@ -15,10 +23,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Installing Python dependencies no longer prints `BrokenPipeError` tracebacks: the allow-host proxy now treats a client that hangs up before its reply (uv races connections) as a normal end, not an error (#127).
-
-### Added
-
-- Every GitHub release carries a tested Arch package (`coldrun.pkg.tar.zst`, plus the versioned file and a checksum), built from the tag in an Arch container after the release; install it with `pacman -U`. The AUR PKGBUILD is pinned to the v1.0.1 tarball (#118).
 
 ## [1.0.1] - 2026-11-20
 
@@ -134,7 +138,8 @@ Foundation release (published under the former name `muzzle`): an empty `muzzle 
 - Issue templates (bug, feature, new runner, false positive), pull request template, CODEOWNERS, CONTRIBUTING, SECURITY and CODE_OF_CONDUCT (#4).
 - CLAUDE.md with the repo workflow, branch protection, code quality bar and the hard security rules for agents and contributors (#8).
 
-[Unreleased]: https://github.com/rj-karan/coldrun/compare/v1.0.1...HEAD
+[Unreleased]: https://github.com/rj-karan/coldrun/compare/v1.0.2...HEAD
+[1.0.2]: https://github.com/rj-karan/coldrun/compare/v1.0.1...v1.0.2
 [1.0.1]: https://github.com/rj-karan/coldrun/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/rj-karan/coldrun/compare/v0.4.0...v1.0.0
 [0.4.0]: https://github.com/rj-karan/coldrun/compare/v0.3.0...v0.4.0

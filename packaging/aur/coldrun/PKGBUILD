@@ -1,6 +1,6 @@
 # Maintainer: KARAN RJ <rjkaran418 at gmail dot com>
 pkgname=coldrun
-pkgver=1.0.1
+pkgver=1.0.2
 pkgrel=1
 pkgdesc="Fetch, vet and sandbox any downloaded script in one command"
 arch=(any)
@@ -18,7 +18,7 @@ optdepends=(
   'ruby: Ruby scripts and gems'
 )
 source=("$pkgname-$pkgver.tar.gz::$url/archive/refs/tags/v$pkgver.tar.gz")
-sha256sums=('438077a9593aab16f08d8109024e5fa74c58a0a50e0b35b44f03f62ca1697ab4')
+sha256sums=('SKIP')  # updpkgsums after the v$pkgver tag exists
 
 build() {
   cd "$pkgname-$pkgver"
