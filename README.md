@@ -68,6 +68,16 @@ uv tool install semgrep guarddog # Python script rules and dependency vetting
 uvx coldrun --version            # or run without installing (no vetting)
 ```
 
+On Arch and Omarchy, every release also carries a pacman package:
+
+```
+curl -LO https://github.com/rj-karan/coldrun/releases/latest/download/coldrun.pkg.tar.zst
+sudo pacman -U coldrun.pkg.tar.zst   # pulls bubblewrap, uv and the Python libraries from the repos
+```
+
+It installs the man page and bash, zsh and fish completions. `sudo pacman -S python-yara`
+adds the YARA script rules. The PKGBUILD is in `packaging/aur/` for building it yourself.
+
 Needs Linux, Python 3.10+ and [bubblewrap](https://github.com/containers/bubblewrap)
 (`pacman -S bubblewrap` on Arch and Omarchy, `apt install bubblewrap` on Debian, Kali
 and Ubuntu). `coldrun doctor` checks the rest.

@@ -1,0 +1,74 @@
+name: Arch package
+
+# Builds the Arch package for a released tag, tests it, and attaches it to the
+# GitHub release, so Arch and Omarchy users can install it with pacman.
+on:
+  workflow_run:
+    workflows: [Release]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to package, such as v1.0.1"
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    name: build, test and attach
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    container: archlinux:base-devel
+    permissions:
+      contents: write  # upload to the release
+    env:
+      TAG: ${{ inputs.tag || github.event.workflow_run.head_branch }}
+    steps:
+      - name: Install build, runtime and test dependencies
+        run: >
+          pacman -Syu --noconfirm --needed git github-cli namcap
+          python-build python-installer python-hatchling python-typer python-rich uv bubblewrap
+          python-yara
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ env.TAG }}
+
+      - name: Build from the tag tarball as an unprivileged user
+        run: |
+          case "$TAG" in v[0-9]*) ;; *) echo "not a release tag: $TAG"; exit 1;; esac
+          useradd -m builder
+          cp -r packaging/aur/coldrun /home/builder/pkg
+          chown -R builder /home/builder/pkg
+          cd /home/builder/pkg
+          test "$(sed -n 's/^pkgver=//p' PKGBUILD)" = "${TAG#v}"
+          sudo -u builder updpkgsums  # pin the tarball GitHub serves for this tag
+          sudo -u builder makepkg --force
+          namcap PKGBUILD *.pkg.tar.zst | tee namcap.txt
+          if grep -E ' E: ' namcap.txt; then exit 1; fi
+
+      - name: Install it and check that it refuses a malicious sample
+        run: |
+          sed -i '/^NoExtract/d' /etc/pacman.conf
+          pacman -U --noconfirm /home/builder/pkg/coldrun-*.pkg.tar.zst
+          coldrun --version | grep -qx "coldrun ${TAG#v}"
+          man -w coldrun
+          set +e
+          coldrun scan tests/fixtures/vet/yara/persistence_shell_rc.match.sh
+          code=$?
+          set -e
+          test "$code" -eq 100
+
+      - name: Attach to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          cd /home/builder/pkg
+          pkg=$(ls coldrun-*-any.pkg.tar.zst)
+          cp "$pkg" coldrun.pkg.tar.zst  # stable name for releases/latest/download
+          sha256sum "$pkg" coldrun.pkg.tar.zst > coldrun.pkg.tar.zst.sha256
+          gh release upload "$TAG" "$pkg" coldrun.pkg.tar.zst coldrun.pkg.tar.zst.sha256 \
+            --clobber --repo "$GITHUB_REPOSITORY"
