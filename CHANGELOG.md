@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- The YARA and Semgrep rule files were missing from every wheel and sdist from 0.3.0 to 1.0.0, so installs from PyPI vetted scripts with no rules and reported them as low risk. A top-level `rules` symlink made the build drop them; it is gone. Missing rule files are now a medium finding that asks before running, and CI installs the built wheel and checks it refuses a malicious sample. The sandbox itself was not affected (#110).
+
 ## [1.0.0] - 2026-11-20
 
 Completes milestone M5: Node, Go, Ruby and Python 2 runners, a Podman backend for runners that ship an image, a documentation site, a man page and shell completions, and AUR packages. `uvx coldrun` and `pipx install coldrun` are checked on clean Arch and Kali after every release.

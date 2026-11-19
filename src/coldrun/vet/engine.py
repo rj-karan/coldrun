@@ -47,6 +47,8 @@ def scan_semgrep(path: Path, exe: str | None = None) -> list[Finding]:
     exe = exe or semgrep_exe()
     if exe is None:
         return [_missing(path, "semgrep")]
+    if not any((RULES / "semgrep").glob("*.yaml")):
+        return [_no_rules(path, "semgrep")]
     argv = [
         exe, "scan", "--config", str(RULES / "semgrep"), "--json", "--quiet", "--metrics=off",
         "--disable-version-check", "--scan-unknown-extensions", str(path),
@@ -82,7 +84,10 @@ def scan_yara(path: Path) -> list[Finding]:
     """Run the YARA rules on one script; one finding per rule and matching line."""
     if yara is None:
         return [_missing(path, "yara-python")]
-    rules = yara.compile(filepaths={p.stem: str(p) for p in (RULES / "yara").glob("*.yar")})
+    files = {p.stem: str(p) for p in (RULES / "yara").glob("*.yar")}
+    if not files:
+        return [_no_rules(path, "yara")]
+    rules = yara.compile(filepaths=files)
     data = path.read_bytes()
     out: list[Finding] = []
     for m in rules.match(data=data, timeout=30):
@@ -96,6 +101,14 @@ def scan_yara(path: Path) -> list[Finding]:
 def _missing(path: Path, tool: str) -> Finding:
     msg = f"{tool} is not installed, so the script was not vetted. Fix: {INSTALL_HINT[tool]}"
     return Finding(f"{tool}.missing", Severity.LOW, path, msg)
+
+
+def _no_rules(path: Path, tool: str) -> Finding:
+    # a broken install must not look like a clean scan, so this asks before running
+    msg = (
+        f"coldrun's {tool} rule files are missing from this install, so the script was not vetted."
+    )
+    return Finding(f"{tool}.no-rules", Severity.MEDIUM, path, msg + " Reinstall coldrun.")
 
 
 def _failed(path: Path, tool: str, why: str) -> Finding:
