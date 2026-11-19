@@ -219,3 +219,16 @@ def test_bridge_stays_python2_parseable() -> None:
     assert not [n for n in ast.walk(tree) if isinstance(n, (ast.JoinedStr, ast.NamedExpr))]
     funcs = [n for n in ast.walk(tree) if isinstance(n, ast.FunctionDef)]
     assert funcs and not [f for f in funcs if f.returns or any(a.annotation for a in f.args.args)]
+
+
+@pytest.mark.parametrize("target", ["127.0.0.1:{port}", "evil.test:443", "junk"])
+def test_clients_that_hang_up_early_are_handled_quietly(
+    proxy: AllowProxy, upstream: HTTPServer, target: str
+) -> None:
+    # uv races several connections and drops the losers before the proxy answers
+    ours, theirs = socket.socketpair()
+    theirs.sendall(
+        f"CONNECT {target.format(port=upstream.server_address[1])} HTTP/1.1\r\n\r\n".encode()
+    )
+    theirs.close()  # gone before the reply
+    proxy._handle(ours)  # must not raise BrokenPipeError
