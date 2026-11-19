@@ -15,8 +15,6 @@ it is written in the subset both understand, with type comments instead of
 annotations. Enforcement stays on the host side; this file only moves bytes.
 """
 
-from __future__ import annotations
-
 import argparse
 import socket
 import subprocess  # nosemgrep: gitlab.bandit.B404 -- runs the sandboxed command; argv list only
