@@ -1,0 +1,54 @@
+name: Install check
+
+# Installs the published package from PyPI on clean Arch and Kali, the way a user
+# would, after every release and on demand.
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "coldrun version on PyPI (empty for the latest)"
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  install:
+    name: ${{ matrix.distro }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - distro: arch
+            image: archlinux:latest
+            setup: pacman -Syu --noconfirm --needed python python-pipx uv bubblewrap
+          - distro: kali
+            image: kalilinux/kali-rolling
+            setup: >
+              apt-get update -q &&
+              DEBIAN_FRONTEND=noninteractive apt-get install -y -q --no-install-recommends
+              python3 pipx bubblewrap curl ca-certificates &&
+              curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR=/usr/local/bin sh
+    container: ${{ matrix.image }}
+    env:
+      SPEC: coldrun${{ inputs.version && format('=={0}', inputs.version) || '' }}
+      # a release published a minute ago can lag on the PyPI index
+      UV_NO_CACHE: "1"
+    steps:
+      - name: Install the distribution's prerequisites
+        run: ${{ matrix.setup }}
+
+      - name: uvx coldrun
+        run: |
+          for i in 1 2 3 4 5; do uvx --from "$SPEC" coldrun --version && break; sleep 30; done
+          uvx --from "$SPEC" coldrun --version
+
+      - name: pipx install coldrun
+        run: |
+          pipx install "$SPEC"
+          ~/.local/bin/coldrun --version
+          # user namespaces are often blocked inside a CI container; the report is for the log
+          ~/.local/bin/coldrun doctor || true
