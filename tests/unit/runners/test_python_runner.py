@@ -21,7 +21,7 @@ class TestPythonRunnerContract(RunnerContract):
     [
         ("#!/usr/bin/env python3\n", ".py", 1.0),
         ("#!/usr/bin/python3.12\n", "", 1.0),
-        ("#!/usr/bin/env python\n", ".txt", 1.0),
+        ("#!/usr/bin/env python\n", ".txt", 0.9),  # bare python may be Python 2
         ("#!/bin/bash\n", ".py", 0.0),
         ("print(1)\n", ".py", 0.8),
         ("print(1)\n", ".sh", 0.0),

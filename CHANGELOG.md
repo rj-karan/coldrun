@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Python 2 runner: a `python2` shebang, or Python 2-only syntax (print statement, `except X, e:`, `print >>`) under a bare `python` shebang or `.py`, runs in a pinned `python:2.7.18-slim` image on the Podman backend. Dependencies come from the same sources as Python 3, with imports read line by line and Python 2's renamed standard library skipped; the image's pip installs them over registry-only network through the bridge. The Python 3 runner now scores a bare `python` shebang 0.9 so Python 2 code can win (#31).
+
 ### Security
 
 - `--listen` bound every host interface in v0.4.0, so a callback port was open on any network the machine was on. It now binds `127.0.0.1` unless given an address: `--listen 10.10.14.5:4444` for a VPN interface, or `--listen 0.0.0.0:4444` to choose every interface on purpose. Addresses must be literal IPv4 and each port may appear once (#100).

@@ -51,6 +51,7 @@ coldrun = "coldrun.cli:app"
 [project.entry-points."coldrun.runners"]
 sh = "coldrun.runners.shell:ShellRunner"
 python = "coldrun.runners.python:PythonRunner"
+python2 = "coldrun.runners.python2:Python2Runner"
 node = "coldrun.runners.node:NodeRunner"
 go = "coldrun.runners.go:GoRunner"
 ruby = "coldrun.runners.ruby:RubyRunner"

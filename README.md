@@ -126,6 +126,7 @@ not be set up; run `coldrun doctor`) and `102` (dependency resolution failed).
 | Runner | Dependencies from | Installed with |
 |---|---|---|
 | Python 3 | PEP 723 block, `requirements.txt` beside the script, else imports parsed with `ast` | uv, once per dependency set, cached under `~/.cache/coldrun/envs` |
+| Python 2 | Same as Python 3, imports read line by line | The image's pip in a pinned Python 2.7 image on Podman, registry-only network |
 | Bash / sh | Commands the script invokes | Nothing; missing tools are reported with the `pacman` or `apt` line |
 | Node | `package.json` beside the script, else `require` and `import` statements | The system `npm` with `--ignore-scripts`, registry-only network |
 | Go | `go.mod` beside the script, else third-party imports | The system `go get` through `proxy.golang.org` only; built offline |
