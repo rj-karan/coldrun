@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Install check: after every release, and on demand, CI installs the package from PyPI with `uvx` and `pipx` on clean Arch and Kali containers and runs it (#36).
+- Install check: after every release, and on demand, CI installs the package from PyPI with `uvx` and `pipx` on clean Arch and Kali containers and runs it (#107).
 - AUR packages `coldrun` (tagged release) and `coldrun-git` in `packaging/aur/`, installing the man page and completions. A CI job builds both in an Arch container from the checkout, runs `namcap`, checks `.SRCINFO`, installs the release package and runs it (#37).
 - Documentation site at https://zororj.me/coldrun/ (mkdocs-material): overview, usage, threat model, runners and how to write one, the JSON report schema, and an FAQ. Built with `--strict` on every docs pull request and deployed from main (#35).
 - Man page and shell completions: `packaging/man/coldrun.1` and bash, zsh and fish scripts in `packaging/completions/`, generated from the CLI by `packaging/generate.py` and kept fresh by a test. The CLI answers completion requests without Typer's `--install-completion`, which would edit the shell rc file (#38).
