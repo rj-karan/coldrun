@@ -233,7 +233,7 @@ def test_listen_delivers_a_host_callback_inside(tmp_path: Path) -> None:
     )
     scratch = tmp_path / "scratch"
     scratch.mkdir()
-    pol = Policy(script=script, scratch=scratch, listen=(port,))
+    pol = Policy(script=script, scratch=scratch, listen=(("127.0.0.1", port),))
     out = tmp_path / "out.txt"
     result: list[int] = []
 

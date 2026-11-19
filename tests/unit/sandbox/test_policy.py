@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 
 from coldrun.sandbox import NetPolicy, Policy, PolicyError, scrub_env
-from coldrun.sandbox.base import ENV_FIXED, WORKDIR, check_rw_path
+from coldrun.sandbox.base import ENV_FIXED, WORKDIR, check_rw_path, parse_listen
 
 
 def mkpolicy(tmp_path: Path, **kw: object) -> Policy:
@@ -141,10 +141,32 @@ def test_tree_puts_the_script_under_its_mount(tmp_path: Path) -> None:
         Policy(script=tmp_path / "other.sh", scratch=tmp_path, tree=tree)
 
 
-def test_listen_ports_are_validated(tmp_path: Path) -> None:
+def test_listen_is_validated(tmp_path: Path) -> None:
     base = {"script": tmp_path / "s", "scratch": tmp_path}
-    Policy(**base, listen=(4444,))  # type: ignore[arg-type]
+    Policy(**base, listen=(("127.0.0.1", 4444), ("10.10.14.5", 9001)))  # type: ignore[arg-type]
     with pytest.raises(PolicyError, match="pointless with full"):
-        Policy(**base, net=NetPolicy.FULL, listen=(4444,))  # type: ignore[arg-type]
+        Policy(**base, net=NetPolicy.FULL, listen=(("127.0.0.1", 4444),))  # type: ignore[arg-type]
     with pytest.raises(PolicyError, match="1-65535"):
-        Policy(**base, listen=(0,))  # type: ignore[arg-type]
+        Policy(**base, listen=(("127.0.0.1", 0),))  # type: ignore[arg-type]
+    with pytest.raises(PolicyError, match="IPv4 address"):
+        Policy(**base, listen=(("evil.example", 4444),))  # type: ignore[arg-type]
+    with pytest.raises(PolicyError, match="may appear once"):
+        Policy(**base, listen=(("127.0.0.1", 1), ("10.0.0.1", 1)))  # type: ignore[arg-type]
+
+
+@pytest.mark.parametrize(
+    ("spec", "want"),
+    [
+        ("4444", ("127.0.0.1", 4444)),  # loopback unless asked: nothing else on the network sees it
+        ("10.10.14.5:4444", ("10.10.14.5", 4444)),
+        ("0.0.0.0:53", ("0.0.0.0", 53)),  # noqa: S104 - the user asking for every interface
+    ],
+)
+def test_parse_listen(spec: str, want: tuple[str, int]) -> None:
+    assert parse_listen(spec) == want
+
+
+@pytest.mark.parametrize("spec", ["", "x", "host:abc", "::1:80", "1.2.3.4:70000"])
+def test_parse_listen_rejects(spec: str) -> None:
+    with pytest.raises(PolicyError):
+        parse_listen(spec)
