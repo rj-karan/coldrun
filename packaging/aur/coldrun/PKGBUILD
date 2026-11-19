@@ -1,0 +1,38 @@
+# Maintainer: KARAN RJ <rjkaran418 at gmail dot com>
+pkgname=coldrun
+pkgver=0.4.0
+pkgrel=1
+pkgdesc="Fetch, vet and sandbox any downloaded script in one command"
+arch=(any)
+url="https://github.com/rj-karan/coldrun"
+license=(MIT)
+depends=(python bubblewrap python-typer python-rich uv)
+makedepends=(python-build python-installer python-hatchling)
+optdepends=(
+  'python-yara: YARA rules that vet scripts in any language'
+  'semgrep: Semgrep rules that vet Python scripts'
+  'podman: Python 2 scripts, which run in a container image'
+  'nodejs: Node scripts'
+  'npm: Node dependencies'
+  'go: Go scripts'
+  'ruby: Ruby scripts and gems'
+)
+source=("$pkgname-$pkgver.tar.gz::$url/archive/refs/tags/v$pkgver.tar.gz")
+sha256sums=('819775765e8dc31eb73f4896dcb9c6850ad6649957be561ea4832bdc951fd1cc')
+
+build() {
+  cd "$pkgname-$pkgver"
+  python -m build --wheel --no-isolation
+}
+
+package() {
+  cd "$pkgname-$pkgver"
+  python -m installer --destdir="$pkgdir" dist/*.whl
+  install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+  install -Dm644 packaging/man/coldrun.1 "$pkgdir/usr/share/man/man1/coldrun.1"
+  install -Dm644 packaging/completions/coldrun.bash \
+    "$pkgdir/usr/share/bash-completion/completions/coldrun"
+  install -Dm644 packaging/completions/_coldrun "$pkgdir/usr/share/zsh/site-functions/_coldrun"
+  install -Dm644 packaging/completions/coldrun.fish \
+    "$pkgdir/usr/share/fish/vendor_completions.d/coldrun.fish"
+}
