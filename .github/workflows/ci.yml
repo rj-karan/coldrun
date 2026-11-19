@@ -99,9 +99,16 @@ jobs:
       - run: uvx twine check --strict dist/*
       - name: Smoke-test the wheel in a clean environment
         run: |
+          python3 -m zipfile -l dist/*.whl | grep -E 'coldrun/rules/(yara/.+\.yar|semgrep/.+\.yaml)'
           uv venv /tmp/wheel-venv
-          uv pip install --python /tmp/wheel-venv dist/*.whl
+          uv pip install --python /tmp/wheel-venv "$(ls dist/*.whl)[vet]"
           /tmp/wheel-venv/bin/coldrun --version
+          # the installed wheel must refuse a malicious sample, not only the source tree
+          set +e
+          /tmp/wheel-venv/bin/coldrun scan tests/fixtures/vet/yara/persistence_shell_rc.match.sh
+          code=$?
+          set -e
+          test "$code" -eq 100
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: dist

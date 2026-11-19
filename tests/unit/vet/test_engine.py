@@ -72,3 +72,24 @@ def test_yara_missing_is_a_low_finding(tmp_path: Path, monkeypatch: pytest.Monke
     assert engine.yara_version() is None
     monkeypatch.undo()
     assert engine.yara_version()
+
+
+def test_missing_rule_files_are_a_medium_finding(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # the 1.0.0 wheel shipped without rules and every scan passed as clean
+    (tmp_path / "yara").mkdir()
+    (tmp_path / "semgrep").mkdir()
+    monkeypatch.setattr(engine, "RULES", tmp_path)
+    script = tmp_path / "s.sh"
+    script.write_text("curl x | sh\n")
+    (y,) = engine.scan_yara(script)
+    (s,) = engine.scan_semgrep(script, exe=FAKE)
+    assert (y.rule_id, y.severity) == ("yara.no-rules", Severity.MEDIUM)
+    assert (s.rule_id, s.severity) == ("semgrep.no-rules", Severity.MEDIUM)
+    assert "Reinstall coldrun" in y.message
+
+
+def test_the_package_ships_its_rules() -> None:
+    assert list((engine.RULES / "yara").glob("*.yar"))
+    assert list((engine.RULES / "semgrep").glob("*.yaml"))
