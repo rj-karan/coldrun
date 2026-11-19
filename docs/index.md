@@ -34,26 +34,15 @@ Podman is needed only for Python 2 scripts.
 
 ## A first run
 
-```text
-$ coldrun run ./imports.py
-imports ok requests yaml BeautifulSoup
-source        ./imports.py  (file)
-runner        python  (100%: shebang /usr/bin/env python3, extension .py)
-dependencies  python3; pypi: PyYAML, beautifulsoup4, requests  (from inferred)
-verdict       low
-environment   fca453c8009e3f3b (installed)
-sandbox       bwrap, network none
-blocked       all network access
-              home directory, SSH keys, browser profiles, cloud credentials
-              Docker socket and D-Bus session
-              writes outside /work and /tmp
-              capabilities and privilege escalation
-exit code     0
-```
+![coldrun running a Python proof of concept: three inferred dependencies, a cached environment, network and home directory blocked, exit code 0](assets/screenshots/run.png)
 
-The script had three third-party imports and no manifest. coldrun inferred
-them, installed them inside the sandbox, ran the script, and the next run
-reuses that environment.
+The script has three third-party imports and no requirements file. coldrun
+found them, installed them inside the sandbox on the first run, and reuses that
+environment on every run after, like this one.
+
+And when a script should not run at all:
+
+![coldrun refusing a one-line installer that pipes a download into a shell and edits ~/.bashrc, exit code 100](assets/screenshots/refused.png)
 
 ## Where to go next
 
