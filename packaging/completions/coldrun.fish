@@ -1,0 +1,1 @@
+complete --command coldrun --no-files --arguments "(env _COLDRUN_COMPLETE=complete_fish _TYPER_COMPLETE_FISH_ACTION=get-args _TYPER_COMPLETE_ARGS=(commandline -cp) coldrun)" --condition "env _COLDRUN_COMPLETE=complete_fish _TYPER_COMPLETE_FISH_ACTION=is-args _TYPER_COMPLETE_ARGS=(commandline -cp) coldrun"

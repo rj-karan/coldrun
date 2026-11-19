@@ -1,0 +1,7 @@
+#compdef coldrun
+
+_coldrun_completion() {
+  eval $(env _TYPER_COMPLETE_ARGS="${words[1,$CURRENT]}" _COLDRUN_COMPLETE=complete_zsh coldrun)
+}
+
+compdef _coldrun_completion coldrun
