@@ -38,12 +38,18 @@ jobs:
               curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR=/usr/local/bin sh
     container: ${{ matrix.image }}
     env:
-      SPEC: coldrun${{ inputs.version && format('=={0}', inputs.version) || '' }}
+      # the tag the Release workflow ran for, else the version asked for, else the latest
+      VERSION: ${{ inputs.version || github.event.workflow_run.head_branch }}
       # a release published a minute ago can lag on the PyPI index
       UV_NO_CACHE: "1"
     steps:
       - name: Install the distribution's prerequisites
         run: ${{ matrix.setup }}
+
+      - name: Pick the version to install
+        run: |
+          v="${VERSION#v}"
+          echo "SPEC=coldrun${v:+==$v}" >> "$GITHUB_ENV"
 
       - name: uvx coldrun
         run: |
@@ -52,7 +58,7 @@ jobs:
 
       - name: pipx install coldrun
         run: |
-          pipx install "$SPEC"
+          for i in 1 2 3 4 5; do pipx install "$SPEC" && break; sleep 30; done
           ~/.local/bin/coldrun --version
           # user namespaces are often blocked inside a CI container; the report is for the log
           ~/.local/bin/coldrun doctor || true
