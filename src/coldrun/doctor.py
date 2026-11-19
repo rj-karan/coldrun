@@ -117,7 +117,7 @@ def check_podman(p: Probes) -> CheckResult:
         return CheckResult(
             "podman",
             Status.WARN,
-            "not installed; only needed for Python 2, Node, Go and Ruby runners (M5)",
+            "not installed; only needed for Python 2 scripts, which run in a container image",
             "sudo pacman -S podman  or  sudo apt install podman",
         )
     ver = p.version_of([path, "--version"]) or "version unknown"

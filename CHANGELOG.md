@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - The YARA and Semgrep rule files were missing from every wheel and sdist from 0.3.0 to 1.0.0, so installs from PyPI vetted scripts with no rules and reported them as low risk. A top-level `rules` symlink made the build drop them; it is gone. Missing rule files are now a medium finding that asks before running, and CI installs the built wheel and checks it refuses a malicious sample. The sandbox itself was not affected (#110).
+- `coldrun doctor` no longer says podman is needed for Node, Go and Ruby; only Python 2 scripts run in a container image (#112).
 
 ## [1.0.0] - 2026-11-20
 
