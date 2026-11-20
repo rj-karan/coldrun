@@ -13,7 +13,7 @@ import os
 from pathlib import Path
 
 
-def write_nofollow(path: Path, data: bytes | str, mode: int = 0o644) -> None:
+def write_nofollow(path: Path, data: bytes | str, mode: int = 0o600) -> None:
     """Create or replace ``path`` without following a symlink at it.
 
     A symlink already at ``path`` is removed first; if one appears again before

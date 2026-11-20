@@ -19,6 +19,9 @@ def test_write_replaces_a_planted_symlink_instead_of_following_it(tmp_path: Path
     assert (target.stat().st_mode & 0o777) == 0o600
     write_nofollow(target, b"bytes too")
     assert target.read_bytes() == b"bytes too"
+    fresh = tmp_path / "fresh"
+    write_nofollow(fresh, "private by default")
+    assert (fresh.stat().st_mode & 0o777) == 0o600
 
 
 def test_a_symlink_that_reappears_makes_the_write_fail(
