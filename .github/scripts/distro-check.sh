@@ -12,7 +12,8 @@ elif command -v apt-get >/dev/null; then
         python3 python3-venv bubblewrap curl ca-certificates passwd
 elif command -v dnf >/dev/null; then
     # Rocky 9's python3 is 3.9; coldrun needs 3.10, so take 3.11 where it exists
-    dnf install -y python3 bubblewrap curl shadow-utils util-linux
+    # curl itself comes from curl-minimal on Rocky, which conflicts with the full package
+    dnf install -y python3 bubblewrap shadow-utils util-linux
     dnf install -y python3.11 || true
 elif command -v zypper >/dev/null; then
     zypper -n install python3 bubblewrap curl shadow util-linux

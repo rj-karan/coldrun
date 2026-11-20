@@ -12,6 +12,8 @@ import subprocess
 
 import pytest
 
+from coldrun.sandbox.bwrap import _top_level
+
 pytestmark = pytest.mark.sandbox
 
 _MINIMAL_ROOT = [
@@ -21,15 +23,8 @@ _MINIMAL_ROOT = [
     "--ro-bind",
     "/usr",
     "/usr",
-    "--symlink",
-    "usr/bin",
-    "/bin",
-    "--symlink",
-    "usr/lib",
-    "/lib",
-    "--symlink",
-    "usr/lib64",
-    "/lib64",
+    # the host's own /bin and /lib layout: symlinks where /usr is merged, binds where not (Alpine)
+    *_top_level(),
     "--proc",
     "/proc",
     "--dev",
