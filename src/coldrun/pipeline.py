@@ -257,7 +257,13 @@ def _scratch_for(fetched: Fetched) -> Path:
     return scratch
 
 
-def _install(backend: Backend, policy: Policy, runner: Runner, deps: DepSet) -> str | None:
+def _install(
+    backend: Backend,
+    policy: Policy,
+    runner: Runner,
+    deps: DepSet,
+    dep_findings: Sequence[Finding] = (),
+) -> str | None:
     """Install into the cached environment unless it is already there.
 
     Returns the environment key, or ``None`` when nothing had to be installed.
@@ -293,7 +299,7 @@ def _install(backend: Backend, policy: Policy, runner: Runner, deps: DepSet) -> 
             f"Installing dependencies failed inside the sandbox (exit {code}).",
             "Check the install output above; `coldrun deps SOURCE` shows what was requested.",
         )
-    cache.mark_ready(policy.deps_dir, runner.name, deps)
+    cache.mark_ready(policy.deps_dir, runner.name, deps, dep_findings)
     return f"{key} (installed)"
 
 
@@ -459,9 +465,12 @@ def _run(opts: RunOptions, console: Console, services: Services, report: Report)
     deps = _resolve(runner, fetched.path)  # 3 resolve
     report.deps = deps
     deps_dir = cache.env_dir(runner.name, deps) if runner.install_cmd(deps) else None
-    # shortcut: a cached env was vetted when it was installed; `coldrun scan` rescans
-    cached = deps_dir is not None and cache.is_ready(deps_dir)
-    findings = _vet(fetched, runner, deps, services, deps_too=not cached)  # 4 vet
+    # 4 vet: a cached environment replays the dependency findings recorded at install
+    if deps_dir is not None and cache.is_ready(deps_dir):
+        dep_findings = cache.recorded_findings(deps_dir)
+    else:
+        dep_findings = services.scan_deps(deps)
+    findings = _vet(fetched, runner, deps, services, deps_too=False) + dep_findings
     report.findings = findings
     report.verdict = decide(findings, opts, services, console)  # 5 decide
 
@@ -486,7 +495,7 @@ def _run(opts: RunOptions, console: Console, services: Services, report: Report)
         tty=opts.is_tty(),
     )
     argv = runner.run_cmd(Path(policy.guest_script), list(opts.args))
-    report.env = _install(backend, policy, runner, deps)
+    report.env = _install(backend, policy, runner, deps, dep_findings)
     # 7 run
     with _stdout_to_stderr() if opts.json else contextlib.nullcontext():
         code = backend.run(policy, argv)

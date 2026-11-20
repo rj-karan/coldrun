@@ -12,13 +12,15 @@ import hashlib
 import json
 import shutil
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from coldrun.config import cache_dir
 from coldrun.safefs import tree_size, write_nofollow
+from coldrun.vet.findings import Finding, Severity
 
 if TYPE_CHECKING:
-    from pathlib import Path
+    from collections.abc import Sequence
 
     from coldrun.runners.base import DepSet
 
@@ -55,16 +57,43 @@ def is_ready(path: Path) -> bool:
     return meta.is_file() and not meta.is_symlink()
 
 
-def mark_ready(path: Path, runner: str, deps: DepSet) -> None:
-    """Record a successful install so later runs skip it."""
+def mark_ready(path: Path, runner: str, deps: DepSet, findings: Sequence[Finding] = ()) -> None:
+    """Record a successful install, and what vetting its dependencies found, for later runs."""
     meta = {
         "runner": runner,
         "interpreter": deps.interpreter,
         "ecosystem": deps.ecosystem,
         "packages": list(deps.packages),
         "created": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "findings": [
+            {
+                "rule_id": f.rule_id,
+                "severity": f.severity.value,
+                "file": str(f.file),
+                "message": f.message,
+                "line": f.line,
+                "host": f.host,
+            }
+            for f in findings
+        ],
     }
     write_nofollow(_meta(path), json.dumps(meta, indent=2) + "\n")
+
+
+def recorded_findings(path: Path) -> list[Finding]:
+    """The dependency findings recorded when this environment was installed."""
+    meta = json.loads(_meta(path).read_text())
+    return [
+        Finding(
+            r["rule_id"],
+            Severity(r["severity"]),
+            Path(r["file"]),
+            r["message"],
+            r["line"],
+            r["host"],
+        )
+        for r in meta.get("findings", [])
+    ]
 
 
 def discard(path: Path) -> None:
