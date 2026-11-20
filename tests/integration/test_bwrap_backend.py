@@ -17,6 +17,7 @@ from pathlib import Path
 import pytest
 
 from coldrun.sandbox import BwrapBackend, NetPolicy, Policy
+from coldrun.sandbox.bwrap import resource_scope as bw_scope
 
 pytestmark = pytest.mark.sandbox
 
@@ -298,3 +299,18 @@ def test_kernel_attack_surface_is_closed(tmp_path: Path) -> None:
         assert lines[name] == "-1 ENOSYS", (name, lines[name])
     if "--disable-userns" in backend.features:
         assert lines["unshare_user"].startswith("-1 "), lines["unshare_user"]
+
+
+@pytest.mark.skipif(not bw_scope(), reason="no systemd user session to scope into")
+def test_a_fork_bomb_hits_the_task_limit(tmp_path: Path) -> None:
+    script = tmp_path / "q" / "bomb.sh"
+    script.parent.mkdir()
+    # 200 sleepers against a limit of 64: forks must start failing inside the sandbox
+    script.write_text("#!/bin/sh\nexec 2>&1\nfor i in $(seq 1 200); do sleep 20 & done\nwait\n")
+    scratch = tmp_path / "scratch"
+    scratch.mkdir()
+    pol = Policy(script=script, scratch=scratch)
+    out = tmp_path / "out.txt"
+    with out.open("w") as fh, _redirect_stdout(fh):
+        BwrapBackend(scope=bw_scope(tasks_max=64)).run(pol, ["/bin/sh", pol.guest_script])
+    assert "Resource temporarily unavailable" in out.read_text()

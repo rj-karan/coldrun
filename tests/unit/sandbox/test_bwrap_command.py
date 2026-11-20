@@ -28,6 +28,7 @@ def backend(features: frozenset[str] = frozenset({bw.DISABLE_USERNS})) -> BwrapB
         uid=1000,
         gid=1000,
         features=features,
+        scope=[],
     )
 
 
@@ -422,3 +423,37 @@ def test_bwrap_features_are_read_from_help(tmp_path: Path) -> None:
     assert bw.bwrap_features(str(tmp_path / "missing")) == frozenset()
     assert bw.bwrap_features(None) == frozenset()
     assert BwrapBackend(bwrap=str(fake)).features == frozenset()  # detected lazily, once
+
+
+def test_runs_go_through_the_resource_scope(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(bw, "userns_problem", lambda: None)
+    seen: list[list[str]] = []
+
+    def fake_run(cmd: list[str], **k: object) -> subprocess.CompletedProcess[str]:
+        seen.append(cmd)
+        return subprocess.CompletedProcess(cmd, 0, "", "")
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    scoped = BwrapBackend(bwrap=FAKE_BWRAP, features=frozenset(), scope=["systemd-run", "--"])
+    scoped.run(mkpolicy(tmp_path), ["true"])
+    assert seen[-1][:3] == ["systemd-run", "--", FAKE_BWRAP]
+    assert seen[0][0] == FAKE_BWRAP  # the probe is not scoped
+
+
+def test_resource_scope_detection(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    monkeypatch.setattr("shutil.which", lambda name: None)
+    assert bw.resource_scope() == []
+    ok = tmp_path / "systemd-run"
+    ok.write_text("#!/bin/sh\nexit 0\n")
+    ok.chmod(0o755)
+    monkeypatch.setattr("shutil.which", lambda name: str(ok))
+    scope = bw.resource_scope(tasks_max=10, memory_max="5%")
+    assert scope[0] == str(ok) and "TasksMax=10" in scope and "MemoryMax=5%" in scope
+    assert scope[-1] == "--"
+    ok.write_text("#!/bin/sh\necho 'Failed to connect to bus' >&2\nexit 1\n")
+    assert bw.resource_scope() == []
+    monkeypatch.setattr("shutil.which", lambda name: str(tmp_path / "gone"))
+    assert bw.resource_scope() == []
+    assert BwrapBackend(bwrap=FAKE_BWRAP, scope=None).scope == []  # decided lazily, once
