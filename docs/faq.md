@@ -35,6 +35,12 @@ The script runs in `/work`. Anything it writes there is copied to
 `coldrun cache clean`. Quarantined sources and environments live under
 `~/.cache/coldrun/`.
 
+## Which Linux distributions work?
+
+Any with Python 3.10 or newer, bubblewrap and unprivileged user namespaces. CI
+runs the real sandbox on Arch, Fedora, Debian, Ubuntu, Rocky 8 and 9, openSUSE
+and Alpine. NixOS is not supported yet.
+
 ## Does it run on macOS or Windows?
 
 No. The sandbox is built on Linux namespaces through bubblewrap and Podman.

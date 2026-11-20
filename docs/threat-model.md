@@ -20,6 +20,25 @@ These hold for every runner and both backends.
   registry, and npm runs with `--ignore-scripts`.
 - The environment is scrubbed to an allowlist; your tokens and keys in
   environment variables never reach the script.
+- Nothing the sandbox writes can steer a write on the host: coldrun's own files
+  (the cache record, the synthetic `passwd`) live where no sandbox can reach,
+  every host write refuses to follow a symlink, the install step runs in its
+  own scratch directory, and collecting outputs copies only real files and
+  directories, never a symlink.
+
+On the **bubblewrap** backend, on top of that:
+
+- **No nested user namespaces** (`--disable-userns`, bubblewrap 0.8 or newer).
+  Creating them from inside is how most recent kernel exploits reach root.
+- **A seccomp filter** answers io_uring, eBPF, perf events, userfaultfd and the
+  kernel keyring with `ENOSYS`, on x86_64 (including its 32-bit and x32 modes),
+  aarch64 and 32-bit arm. These interfaces carry most recent kernel
+  privilege-escalation bugs, and ordinary scripts never need them.
+- **Resource limits**: 2048 processes and 75% of memory per run, through a
+  systemd user scope, so a fork bomb or a memory hog cannot take the machine
+  down.
+
+`coldrun doctor` shows which of these your system provides.
 
 The **bubblewrap** backend runs everything that uses host toolchains: Python 3,
 Bash, Node, Go and Ruby. The **Podman** backend runs runners that ship an image
@@ -45,8 +64,13 @@ always shown.
 
 - **What you let out.** `--net full`, `--rw` and `--listen ADDR:PORT` widen the
   sandbox on purpose. A script with full network can talk to anything.
-- **The kernel.** A kernel exploit that escapes user namespaces escapes
-  bubblewrap and rootless Podman alike. Keep the kernel patched.
+- **The kernel.** A kernel bug reachable through the system calls the sandbox
+  still allows escapes bubblewrap and rootless Podman alike. The seccomp filter
+  and the user-namespace lock shrink that surface; they do not remove it. Keep
+  the kernel patched.
+- **Older systems.** bubblewrap before 0.8 cannot lock user namespaces, the
+  filter covers x86 and arm only, and without a systemd user session there are
+  no resource limits. `coldrun doctor` names each gap.
 - **Outputs.** Files the script writes are copied to `--out`. Treat them as
   untrusted.
 - **TIOCSTI on old kernels.** When the kernel still allows terminal injection,
