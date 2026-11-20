@@ -16,6 +16,11 @@ from tests.unit.sandbox.test_policy import mkpolicy
 FAKE_BWRAP = "/opt/fake/bwrap"
 
 
+@pytest.fixture(autouse=True)
+def _cache(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path / "cache"))
+
+
 def backend() -> BwrapBackend:
     return BwrapBackend(
         bwrap=FAKE_BWRAP, environ={"TERM": "dumb", "SECRET": "x"}, uid=1000, gid=1000
@@ -82,7 +87,19 @@ def test_passwd_and_group_hide_host_users(tmp_path: Path) -> None:
     assert "coldrun:x:1000:1000" in passwd
     assert f":{WORKDIR}:" in passwd
     assert Path(ro["/etc/group"]).read_text().startswith("root:x:0:")
-    assert Path(ro["/etc/passwd"]).parent == p.scratch / ".coldrun"
+    assert not Path(ro["/etc/passwd"]).is_relative_to(p.scratch)  # out of the sandbox's reach
+
+
+def test_a_planted_passwd_symlink_in_scratch_is_never_written_through(tmp_path: Path) -> None:
+    # what install-time code could leave in /work before the script's sandbox is built
+    p = mkpolicy(tmp_path)
+    victim = tmp_path / "profile"
+    victim.write_text("original\n")
+    (p.scratch / ".coldrun").mkdir(exist_ok=True)
+    (p.scratch / ".coldrun" / "passwd").symlink_to(victim)
+    (p.scratch / ".coldrun" / "group").symlink_to(victim)
+    backend().command(p, ["true"], tiocsti_blocked=False)
+    assert victim.read_text() == "original\n"
 
 
 def test_network_none_hides_resolver_and_certs(tmp_path: Path) -> None:

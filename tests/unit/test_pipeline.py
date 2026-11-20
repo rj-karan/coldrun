@@ -498,3 +498,16 @@ def test_install_output_goes_to_stderr(
     out, err = capfd.readouterr()
     assert out == "script output\n"
     assert "added 1 package" in err
+
+
+def test_install_runs_in_its_own_scratch(script: Path, tmp_path: Path) -> None:
+    runner = VettingRunner(install=["pip", "install", "x"])
+    backend = FakeBackend(codes=[0, 0])
+    con, _ = console()
+    svc = Services(registry(runner), {"fake": backend}, scan_deps=lambda d: [])
+    assert (
+        pipeline.run(RunOptions(source=str(script), out=tmp_path / "o", tty=False), con, svc) == 0
+    )
+    (install, _), (run, _) = backend.runs
+    assert install.scratch != run.scratch  # nothing planted while installing reaches the run
+    assert install.scratch.parent == run.scratch.parent
