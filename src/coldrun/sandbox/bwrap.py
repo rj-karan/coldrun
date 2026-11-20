@@ -46,12 +46,9 @@ _ETC_DNS = ("/etc/resolv.conf", "/etc/hosts")
 _GUEST_BRIDGE = "/run/coldrun/bridge.py"
 _GUEST_SOCK_DIR = "/run/coldrun/net"
 _GUEST_PYTHON = "/usr/bin/python3"
-_USR_SYMLINKS = (
-    ("usr/bin", "/bin"),
-    ("usr/sbin", "/sbin"),
-    ("usr/lib", "/lib"),
-    ("usr/lib64", "/lib64"),
-)
+#: Top-level directories that hold programs and libraries next to /usr.
+_TOP_DIRS = ("bin", "sbin", "lib", "lib32", "lib64", "libx32")
+_ROOT = Path("/")
 _TIOCSTI_SYSCTL = Path("/proc/sys/dev/tty/legacy_tiocsti")
 _USERNS_CLONE = Path("/proc/sys/kernel/unprivileged_userns_clone")
 _APPARMOR_USERNS = Path("/proc/sys/kernel/apparmor_restrict_unprivileged_userns")
@@ -71,6 +68,22 @@ def _script_bind(policy: Policy) -> list[str]:
     if policy.tree is not None:
         return ["--ro-bind", str(policy.tree), f"{WORKDIR}/{policy.tree.name}"]
     return ["--ro-bind", str(policy.script), policy.guest_script]
+
+
+def _top_level(root: Path = _ROOT) -> list[str]:
+    """Mirror the host's /bin, /lib and the rest: a symlink where /usr is merged, a bind where not.
+
+    Arch, Fedora and current Debian merge them into /usr; Alpine (busybox in /bin),
+    older Debian and some Gentoo installs keep real directories.
+    """
+    out: list[str] = []
+    for name in _TOP_DIRS:
+        host = root / name
+        if host.is_symlink():
+            out += ["--symlink", str(host.readlink()), f"/{name}"]
+        elif host.is_dir():
+            out += ["--ro-bind", str(host), f"/{name}"]
+    return out
 
 
 def _etc_files(net: NetPolicy) -> tuple[str, ...]:
@@ -124,6 +137,7 @@ def _bridge(
 
 
 DISABLE_USERNS = "--disable-userns"
+CLEARENV = "--clearenv"
 #: Per run: plenty for builds and package managers, far short of a fork bomb.
 TASKS_MAX = 2048
 #: Per run, of physical memory: the rest of the machine stays usable.
@@ -161,7 +175,7 @@ def bwrap_features(executable: str | None) -> frozenset[str]:
         )
     except (OSError, subprocess.TimeoutExpired):
         return frozenset()
-    return frozenset(f for f in (DISABLE_USERNS,) if f in out.stdout + out.stderr)
+    return frozenset(f for f in (DISABLE_USERNS, CLEARENV) if f in out.stdout + out.stderr)
 
 
 def tiocsti_is_blocked() -> bool:
@@ -265,7 +279,8 @@ class BwrapBackend:
                 "Install it: `sudo pacman -S bubblewrap` or `sudo apt install bubblewrap`.",
             )
         problem = userns_problem()
-        if problem is not None:
+        # the sysctls only suggest a problem: an AppArmor profile can still let bwrap in
+        if problem is not None and self._probe_error() is not None:
             return Availability(False, *problem)
         return Availability(True)
 
@@ -310,8 +325,7 @@ class BwrapBackend:
 
         # Read-only base system.
         cmd += ["--ro-bind", "/usr", "/usr"]
-        for target, link in _USR_SYMLINKS:
-            cmd += ["--symlink", target, link]
+        cmd += _top_level()
         for etc in _etc_files(policy.net):
             cmd += ["--ro-bind-try", etc, etc]
         passwd, group = _passwd_files(cache_dir() / "sandbox-etc", self._uid, self._gid)
@@ -342,9 +356,7 @@ class BwrapBackend:
         cmd += ["--remount-ro", "/", "--chdir", WORKDIR]
 
         # Scrubbed environment.
-        cmd.append("--clearenv")
-        for name, value in scrub_env(self._environ, extra_env).items():
-            cmd += ["--setenv", name, value]
+        cmd += self._env_flags(extra_env)
 
         cmd.append("--")
         cmd.extend(argv)
@@ -356,6 +368,17 @@ class BwrapBackend:
         if self._scope is None:
             self._scope = resource_scope()
         return self._scope
+
+    def _env_flags(self, extra: Mapping[str, str]) -> list[str]:
+        """Clear the environment, then set the allowlisted variables."""
+        env = scrub_env(self._environ, extra)
+        if CLEARENV in self.features:
+            flags = [CLEARENV]
+        else:  # bubblewrap before 0.5 (RHEL and Rocky 8 and 9): drop each variable instead
+            flags = [a for n in sorted(set(self._environ) - set(env)) for a in ("--unsetenv", n)]
+        for name, value in env.items():
+            flags += ["--setenv", name, value]
+        return flags
 
     def _hardening(self, seccomp_fd: int | None) -> list[str]:
         flags: list[str] = []
@@ -375,22 +398,28 @@ class BwrapBackend:
         avail = self.available()
         if not avail.ok:
             raise SandboxError(avail.reason, avail.hint)
+        error = self._probe_error()
+        if error is not None:
+            raise SandboxError(error, _DOCTOR)
+
+    def _probe_error(self) -> str | None:
+        """Why an empty sandbox fails to start here, or ``None`` when it starts."""
         bwrap = self.executable
         if bwrap is None:  # pragma: no cover - available() already failed in that case
-            raise SandboxError("bubblewrap is not installed.", _DOCTOR)
+            return "bubblewrap is not installed."
         cmd = [
             bwrap, "--unshare-all", "--die-with-parent", "--new-session",
-            "--ro-bind", "/usr", "/usr", "--symlink", "usr/bin", "/bin",
-            "--symlink", "usr/lib", "/lib", "--symlink", "usr/lib64", "/lib64",
+            "--ro-bind", "/usr", "/usr", *_top_level(),
             "--proc", "/proc", "--dev", "/dev", "--", "/bin/true",
         ]  # fmt: skip
         try:
             result = subprocess.run(cmd, capture_output=True, text=True, check=False, timeout=30)  # noqa: S603 - fixed argv
         except (OSError, subprocess.TimeoutExpired) as exc:
-            raise SandboxError(f"bubblewrap could not start: {exc}.", _DOCTOR) from exc
+            return f"bubblewrap could not start: {exc}."
         if result.returncode != 0:
             detail = result.stderr.strip().splitlines()[-1:] or [f"exit {result.returncode}"]
-            raise SandboxError(f"bubblewrap failed to create a sandbox: {detail[0]}.", _DOCTOR)
+            return f"bubblewrap failed to create a sandbox: {detail[0]}."
+        return None
 
     def run(self, policy: Policy, argv: Sequence[str]) -> int:
         """Probe, then run with stdin, stdout and stderr inherited."""
