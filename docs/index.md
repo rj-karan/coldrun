@@ -28,9 +28,13 @@ sudo pacman -U coldrun.pkg.tar.zst
 ```
 
 Linux only. Needs Python 3.10 or newer and
-[bubblewrap](https://github.com/containers/bubblewrap): `pacman -S bubblewrap`
-on Arch and Omarchy, `apt install bubblewrap` on Debian, Kali and Ubuntu.
-Podman is needed only for Python 2 scripts.
+[bubblewrap](https://github.com/containers/bubblewrap) from your distribution;
+`coldrun doctor` gives the exact install command for anything missing. Podman
+is needed only for Python 2 scripts.
+
+Tested in CI on Arch, Fedora, Debian 12, Ubuntu 22.04 and 24.04, Rocky 8 and 9,
+openSUSE Tumbleweed and Alpine, on x86_64 and arm64. NixOS is not supported yet: its
+programs live in `/nix/store`, which the sandbox does not mount.
 
 ## A first run
 

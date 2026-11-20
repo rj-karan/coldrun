@@ -95,8 +95,13 @@ It installs the man page and bash, zsh and fish completions. `sudo pacman -S pyt
 adds the YARA script rules. The PKGBUILD is in `packaging/aur/` for building it yourself.
 
 Needs Linux, Python 3.10+ and [bubblewrap](https://github.com/containers/bubblewrap)
-(`pacman -S bubblewrap` on Arch and Omarchy, `apt install bubblewrap` on Debian, Kali
-and Ubuntu). `coldrun doctor` checks the rest.
+from your distribution (`pacman -S`, `apt install`, `dnf install`, `zypper install` or
+`apk add` bubblewrap). `coldrun doctor` checks the rest and gives your distribution's
+command for anything missing.
+
+Tested in CI on Arch, Fedora, Debian 12, Ubuntu 22.04 and 24.04, Rocky 8 and 9,
+openSUSE Tumbleweed and Alpine, on x86_64 and arm64. NixOS is not supported yet: its
+programs live in `/nix/store`, which the sandbox does not mount.
 
 ## Usage
 
