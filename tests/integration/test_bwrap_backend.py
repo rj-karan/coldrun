@@ -257,3 +257,44 @@ def test_listen_delivers_a_host_callback_inside(tmp_path: Path) -> None:
     t.join(timeout=30)
     assert reply == b"ack shell"
     assert result == [0] and "callback: shell" in out.read_text()
+
+
+ESCAPE_PROBE = """
+import ctypes, errno, platform
+libc = ctypes.CDLL(None, use_errno=True)
+numbers = {
+    "x86_64": {"keyctl": 250, "bpf": 321, "perf_event_open": 298, "userfaultfd": 323,
+               "io_uring_setup": 425},
+    "aarch64": {"keyctl": 219, "bpf": 280, "perf_event_open": 241, "userfaultfd": 282,
+                "io_uring_setup": 425},
+}[platform.machine()]
+for name, nr in numbers.items():
+    ctypes.set_errno(0)
+    rc = libc.syscall(nr, 0, 0, 0, 0, 0)
+    print(name, rc, errno.errorcode.get(ctypes.get_errno(), "0"))
+ctypes.set_errno(0)
+rc = libc.unshare(0x10000000)  # CLONE_NEWUSER
+print("unshare_user", rc, errno.errorcode.get(ctypes.get_errno(), "0"))
+"""
+
+
+@pytest.mark.skipif(
+    __import__("platform").machine() not in {"x86_64", "aarch64"}, reason="probe knows two arches"
+)
+def test_kernel_attack_surface_is_closed(tmp_path: Path) -> None:
+    script = tmp_path / "q" / "probe.py"
+    script.parent.mkdir()
+    script.write_text(ESCAPE_PROBE)
+    scratch = tmp_path / "scratch"
+    scratch.mkdir()
+    pol = Policy(script=script, scratch=scratch)
+    backend = BwrapBackend()
+    out = tmp_path / "out.txt"
+    with out.open("w") as fh, _redirect_stdout(fh):
+        code = backend.run(pol, ["/usr/bin/python3", pol.guest_script])
+    lines = dict(line.split(" ", 1) for line in out.read_text().splitlines())
+    assert code == 0, out.read_text()
+    for name in ("keyctl", "bpf", "perf_event_open", "userfaultfd", "io_uring_setup"):
+        assert lines[name] == "-1 ENOSYS", (name, lines[name])
+    if "--disable-userns" in backend.features:
+        assert lines["unshare_user"].startswith("-1 "), lines["unshare_user"]

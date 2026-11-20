@@ -21,9 +21,13 @@ def _cache(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path / "cache"))
 
 
-def backend() -> BwrapBackend:
+def backend(features: frozenset[str] = frozenset({bw.DISABLE_USERNS})) -> BwrapBackend:
     return BwrapBackend(
-        bwrap=FAKE_BWRAP, environ={"TERM": "dumb", "SECRET": "x"}, uid=1000, gid=1000
+        bwrap=FAKE_BWRAP,
+        environ={"TERM": "dumb", "SECRET": "x"},
+        uid=1000,
+        gid=1000,
+        features=features,
     )
 
 
@@ -375,8 +379,10 @@ def test_run_with_listen_opens_host_sockets_and_passes_them(
     monkeypatch.setattr(bw.BwrapBackend, "_exec", fake_exec)
     assert backend().run(mkpolicy(tmp_path, listen=(("127.0.0.1", port),)), ["nc"]) == 0
     fds = seen["fds"]
-    assert isinstance(fds, tuple) and len(fds) == 1
-    assert f"{fds[0]}:{port}" in seen["cmd"]  # type: ignore[operator]
+    assert isinstance(fds, tuple) and len(fds) == 2  # the listener and the seccomp program
+    cmd = seen["cmd"]
+    assert isinstance(cmd, list)
+    assert f"{fds[0]}:{port}" in cmd and cmd[cmd.index("--seccomp") + 1] == str(fds[1])
     with pytest.raises(OSError, match="refused"):
         socket.create_connection(("127.0.0.1", port), timeout=2)  # closed again afterwards
 
@@ -393,3 +399,26 @@ def test_run_with_listen_opens_host_sockets_and_passes_them(
 def test_bwrap_refuses_image_policies(tmp_path: Path) -> None:
     with pytest.raises(SandboxError, match="container image"):
         backend().command(mkpolicy(tmp_path, image="python:2.7"), ["true"], tiocsti_blocked=False)
+
+
+def test_hardening_flags_follow_what_bubblewrap_supports(tmp_path: Path) -> None:
+    pol = mkpolicy(tmp_path)
+    new = backend().command(pol, ["true"], tiocsti_blocked=False, seccomp_fd=9)
+    assert new[1:8] == [
+        "--unshare-all", "--die-with-parent", "--unshare-user", "--disable-userns",
+        "--assert-userns-disabled", "--seccomp", "9",
+    ]  # fmt: skip
+    old = backend(frozenset()).command(pol, ["true"], tiocsti_blocked=False)
+    assert "--disable-userns" not in old and "--seccomp" not in old  # bubblewrap before 0.8
+
+
+def test_bwrap_features_are_read_from_help(tmp_path: Path) -> None:
+    fake = tmp_path / "bwrap"
+    fake.write_text("#!/bin/sh\necho '    --disable-userns   Disable further use'\n")
+    fake.chmod(0o755)
+    assert bw.bwrap_features(str(fake)) == frozenset({bw.DISABLE_USERNS})
+    fake.write_text("#!/bin/sh\necho 'usage: bwrap [OPTIONS...]'\n")
+    assert bw.bwrap_features(str(fake)) == frozenset()
+    assert bw.bwrap_features(str(tmp_path / "missing")) == frozenset()
+    assert bw.bwrap_features(None) == frozenset()
+    assert BwrapBackend(bwrap=str(fake)).features == frozenset()  # detected lazily, once
