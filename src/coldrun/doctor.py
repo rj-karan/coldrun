@@ -71,6 +71,7 @@ class Probes:
     userns_problem: Callable[[], tuple[str, str] | None] = bw.userns_problem
     tiocsti_blocked: Callable[[], bool] = bw.tiocsti_is_blocked
     bwrap_features: Callable[[str | None], frozenset[str]] = bw.bwrap_features
+    resource_scope: Callable[[], list[str]] = bw.resource_scope
     machine: str = platform.machine()
     python_version: tuple[int, int] = sys.version_info[:2]
     kernel: str = platform.release()
@@ -115,6 +116,22 @@ def check_hardening(p: Probes) -> CheckResult:
         return CheckResult("hardening", Status.WARN, "; ".join(gaps), "; ".join(fixes))
     return CheckResult(
         "hardening", Status.PASS, "nested user namespaces blocked; seccomp filter on"
+    )
+
+
+def check_limits(p: Probes) -> CheckResult:
+    """Each run is capped in processes and memory through a systemd user scope."""
+    if p.resource_scope():
+        return CheckResult(
+            "resource limits",
+            Status.PASS,
+            f"{bw.TASKS_MAX} processes and {bw.MEMORY_MAX} of memory per run (systemd user scope)",
+        )
+    return CheckResult(
+        "resource limits",
+        Status.WARN,
+        "no systemd user session; a fork bomb or memory hog is not contained",
+        "log in to a systemd session, or run inside one with: systemd-run --user --shell",
     )
 
 
@@ -226,6 +243,7 @@ CHECKS: tuple[Callable[[Probes], CheckResult], ...] = (
     check_bwrap,
     check_userns,
     check_hardening,
+    check_limits,
     check_tiocsti,
     check_podman,
     check_uv,

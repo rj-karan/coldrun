@@ -124,6 +124,31 @@ def _bridge(
 
 
 DISABLE_USERNS = "--disable-userns"
+#: Per run: plenty for builds and package managers, far short of a fork bomb.
+TASKS_MAX = 2048
+#: Per run, of physical memory: the rest of the machine stays usable.
+MEMORY_MAX = "75%"
+
+
+def resource_scope(tasks_max: int = TASKS_MAX, memory_max: str = MEMORY_MAX) -> list[str]:
+    """``systemd-run`` prefix that runs the sandbox in a limited user scope, or ``[]``.
+
+    Needs systemd and a user session (most desktop Linux). Without one the sandbox
+    still runs, without limits, and ``coldrun doctor`` says so.
+    """
+    exe = shutil.which("systemd-run")
+    if exe is None:
+        return []
+    base = [exe, "--user", "--scope", "--quiet", "--collect"]
+    try:
+        ok = subprocess.run(  # noqa: S603 - fixed argv
+            [*base, "--", "true"], capture_output=True, check=False, timeout=15
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return []
+    if ok.returncode != 0:
+        return []
+    return [*base, "-p", f"TasksMax={tasks_max}", "-p", f"MemoryMax={memory_max}", "--"]
 
 
 def bwrap_features(executable: str | None) -> frozenset[str]:
@@ -204,10 +229,12 @@ class BwrapBackend:
     def __init__(
         self,
         bwrap: str | None = None,
+        *,
         environ: Mapping[str, str] | None = None,
         uid: int | None = None,
         gid: int | None = None,
         features: frozenset[str] | None = None,
+        scope: list[str] | None = None,
     ) -> None:
         """Create a backend; the arguments exist so tests can pin the host state."""
         self._bwrap = bwrap
@@ -215,6 +242,7 @@ class BwrapBackend:
         self._uid = os.getuid() if uid is None else uid
         self._gid = os.getgid() if gid is None else gid
         self._features = features
+        self._scope = scope
 
     @property
     def features(self) -> frozenset[str]:
@@ -322,6 +350,13 @@ class BwrapBackend:
         cmd.extend(argv)
         return cmd
 
+    @property
+    def scope(self) -> list[str]:
+        """The systemd scope prefix that limits tasks and memory, or ``[]``, decided once."""
+        if self._scope is None:
+            self._scope = resource_scope()
+        return self._scope
+
     def _hardening(self, seccomp_fd: int | None) -> list[str]:
         flags: list[str] = []
         if DISABLE_USERNS in self.features:
@@ -390,6 +425,8 @@ class BwrapBackend:
 
     def _exec(self, cmd: list[str], pass_fds: tuple[int, ...] = ()) -> int:
         try:
-            return subprocess.run(cmd, check=False, pass_fds=pass_fds).returncode  # noqa: S603
+            return subprocess.run(  # noqa: S603 - argv built by command()
+                [*self.scope, *cmd], check=False, pass_fds=pass_fds
+            ).returncode
         except OSError as exc:
             raise SandboxError(f"could not start bubblewrap: {exc}.", _DOCTOR) from exc
