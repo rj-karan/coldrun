@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from coldrun.safefs import tree_size, write_nofollow
+from coldrun.safefs import copy_nofollow, tree_size, write_nofollow
 
 
 def test_write_replaces_a_planted_symlink_instead_of_following_it(tmp_path: Path) -> None:
@@ -46,3 +46,23 @@ def test_tree_size_skips_symlinks(tmp_path: Path) -> None:
     (tmp_path / "dirlink").symlink_to(tmp_path.parent)
     assert tree_size(tmp_path) == 5
     os.remove(big)  # noqa: PTH107 - plain cleanup
+
+
+def test_copy_refuses_a_symlink_source_and_replaces_a_symlink_target(tmp_path: Path) -> None:
+    secret = tmp_path / "secret"
+    secret.write_text("key")
+    link = tmp_path / "link"
+    link.symlink_to(secret)
+    with pytest.raises(OSError):
+        copy_nofollow(link, tmp_path / "copy")
+    src = tmp_path / "src"
+    src.write_text("data")
+    src.chmod(0o640)
+    victim = tmp_path / "victim"
+    victim.write_text("original")
+    dst = tmp_path / "dst"
+    dst.symlink_to(victim)
+    copy_nofollow(src, dst)
+    assert victim.read_text() == "original"
+    assert dst.read_text() == "data" and not dst.is_symlink()
+    assert (dst.stat().st_mode & 0o777) == 0o640

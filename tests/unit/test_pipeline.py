@@ -511,3 +511,35 @@ def test_install_runs_in_its_own_scratch(script: Path, tmp_path: Path) -> None:
     (install, _), (run, _) = backend.runs
     assert install.scratch != run.scratch  # nothing planted while installing reaches the run
     assert install.scratch.parent == run.scratch.parent
+
+
+def test_outputs_never_follow_or_copy_symlinks(tmp_path: Path) -> None:
+    # what a script could leave in /work to get the host to copy secrets out
+    home = tmp_path / "home"
+    (home / ".ssh").mkdir(parents=True)
+    (home / ".ssh" / "id_ed25519").write_text("PRIVATE KEY")
+    scratch, out = tmp_path / "scratch", tmp_path / "out"
+    (scratch / "report").mkdir(parents=True)
+    (scratch / "report" / "result.txt").write_text("found 2 hosts")
+    (scratch / "report" / "key").symlink_to(home / ".ssh" / "id_ed25519")
+    (scratch / "notes.txt").write_text("ok")
+    (scratch / "loot").symlink_to(home / ".ssh")
+    (scratch / "key.txt").symlink_to(home / ".ssh" / "id_ed25519")
+    os.mkfifo(scratch / "pipe")
+    os.mkfifo(scratch / "report" / "pipe")
+    out.mkdir()
+    (out / "report").write_text("a file from an earlier run, now a directory")
+    victim = tmp_path / "bashrc"
+    victim.write_text("original")
+    (out / "notes.txt").symlink_to(victim)  # left in a reused --out
+    wrote = pipeline._collect_outputs(scratch, out, "script.sh")
+    assert victim.read_text() == "original"
+    assert (out / "notes.txt").read_text() == "ok" and not (out / "notes.txt").is_symlink()
+    assert (out / "report" / "result.txt").read_text() == "found 2 hosts"
+    assert not (out / "report" / "key").exists() and not (out / "report" / "key").is_symlink()
+    assert not (out / "loot").exists() and not (out / "key.txt").exists()
+    assert not (out / "pipe").exists() and not (out / "report" / "pipe").exists()
+    assert "PRIVATE KEY" not in "".join(p.read_text() for p in out.rglob("*") if p.is_file())
+    assert set(wrote) == {
+        "notes.txt", "report/", "key.txt (symlink, not copied)", "loot (symlink, not copied)"
+    }  # fmt: skip
