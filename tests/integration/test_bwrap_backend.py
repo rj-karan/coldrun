@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import http.server
 import os
+import re
 import shutil
 import socket
 import subprocess
@@ -313,4 +314,7 @@ def test_a_fork_bomb_hits_the_task_limit(tmp_path: Path) -> None:
     out = tmp_path / "out.txt"
     with out.open("w") as fh, _redirect_stdout(fh):
         BwrapBackend(scope=bw_scope(tasks_max=64)).run(pol, ["/bin/sh", pol.guest_script])
-    assert "Resource temporarily unavailable" in out.read_text()
+    # bash says "Resource temporarily unavailable", dash (Ubuntu's sh) says "Cannot fork"
+    assert re.search(
+        r"resource temporarily unavailable|cannot fork", out.read_text(), re.IGNORECASE
+    )
