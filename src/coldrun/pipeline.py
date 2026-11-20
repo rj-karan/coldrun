@@ -268,9 +268,12 @@ def _install(backend: Backend, policy: Policy, runner: Runner, deps: DepSet) -> 
     if cache.is_ready(policy.deps_dir):
         return f"{key} (cached)"
     registry_hosts = REGISTRY_HOSTS.get(deps.ecosystem, ())
+    # its own /work: install-time code must not leave anything where the script will run
+    install_scratch = policy.scratch.parent / "install"
+    install_scratch.mkdir(mode=0o700, exist_ok=True)
     install_policy = Policy(
         script=policy.script,
-        scratch=policy.scratch,
+        scratch=install_scratch,
         image=policy.image,
         net=NetPolicy.ALLOW if registry_hosts else NetPolicy.FULL,
         allow_hosts=registry_hosts,

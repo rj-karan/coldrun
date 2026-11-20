@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+- Install-time code could make the host overwrite any file the user owns: the bubblewrap backend wrote its synthetic `passwd` and `group` files into the scratch directory, where an install hook had already run and could leave a symlink. They now live in coldrun's cache, which no sandbox mounts, written without following symlinks, and the install step gets its own scratch directory, so nothing it leaves reaches the script's `/work`. Affects 0.2.0 to 1.0.2 (#136).
 - A dependency's install hook could make the host write into any file the user owns, including `~/.bashrc`, and so run commands on the host: coldrun wrote its cache metadata into the environment directory, which the sandbox can write during the install, and followed symlinks there. The metadata now lives next to the environment, out of the sandbox's reach, and host writes never follow a symlink. A marker planted inside an environment no longer marks a failed install as ready. Affects 0.2.0 to 1.0.2 (#134).
 
 ## [1.0.2] - 2026-11-20

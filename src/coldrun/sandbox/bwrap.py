@@ -18,6 +18,8 @@ import tempfile
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from coldrun.config import cache_dir
+from coldrun.safefs import write_nofollow
 from coldrun.sandbox import bridge
 from coldrun.sandbox.base import (
     DEPS_DIR,
@@ -156,17 +158,25 @@ def userns_problem() -> tuple[str, str] | None:
     return None
 
 
-def _passwd_files(scratch: Path, uid: int, gid: int) -> tuple[Path, Path]:
-    """Write minimal passwd and group files so the host's users stay hidden."""
-    meta = scratch / ".coldrun"
-    meta.mkdir(mode=0o700, exist_ok=True)
-    passwd = meta / "passwd"
-    group = meta / "group"
-    passwd.write_text(
-        f"root:x:0:0:root:/root:/bin/sh\ncoldrun:x:{uid}:{gid}:coldrun:{WORKDIR}:/bin/sh\n"
-    )
-    group.write_text(f"root:x:0:\ncoldrun:x:{gid}:\n")
-    return passwd, group
+def _passwd_files(etc_dir: Path, uid: int, gid: int) -> tuple[Path, Path]:
+    """Minimal passwd and group files so the host's users stay hidden.
+
+    They live in coldrun's cache, which no sandbox mounts: anything written
+    into a directory the sandbox can write (such as the scratch directory an
+    install step already ran in) could be a symlink planted to redirect it.
+    """
+    etc_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
+    texts = {
+        "passwd": (
+            f"root:x:0:0:root:/root:/bin/sh\ncoldrun:x:{uid}:{gid}:coldrun:{WORKDIR}:/bin/sh\n"
+        ),
+        "group": f"root:x:0:\ncoldrun:x:{gid}:\n",
+    }
+    for name, text in texts.items():
+        path = etc_dir / name
+        if path.is_symlink() or not path.is_file() or path.read_text() != text:
+            write_nofollow(path, text)
+    return etc_dir / "passwd", etc_dir / "group"
 
 
 class BwrapBackend:
@@ -248,7 +258,7 @@ class BwrapBackend:
             cmd += ["--symlink", target, link]
         for etc in _etc_files(policy.net):
             cmd += ["--ro-bind-try", etc, etc]
-        passwd, group = _passwd_files(policy.scratch, self._uid, self._gid)
+        passwd, group = _passwd_files(cache_dir() / "sandbox-etc", self._uid, self._gid)
         cmd += ["--ro-bind", str(passwd), "/etc/passwd", "--ro-bind", str(group), "/etc/group"]
 
         # Kernel interfaces and private writable space.
