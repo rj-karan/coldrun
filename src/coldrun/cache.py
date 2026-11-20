@@ -15,14 +15,16 @@ from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any
 
 from coldrun.config import cache_dir
+from coldrun.safefs import tree_size, write_nofollow
 
 if TYPE_CHECKING:
     from pathlib import Path
 
     from coldrun.runners.base import DepSet
 
-_READY = ".ready"
-_META = "meta.json"
+#: Suffix of the metadata file kept next to each environment, never inside it:
+#: the sandbox can write inside the environment while dependencies install.
+_META_SUFFIX = ".json"
 
 
 def envs_root() -> Path:
@@ -43,9 +45,14 @@ def env_dir(runner: str, deps: DepSet) -> Path:
     return path
 
 
+def _meta(path: Path) -> Path:
+    return path.parent / f"{path.name}{_META_SUFFIX}"
+
+
 def is_ready(path: Path) -> bool:
-    """True when an install finished here."""
-    return (path / _READY).exists()
+    """True when an install finished here, by coldrun's own record next to it."""
+    meta = _meta(path)
+    return meta.is_file() and not meta.is_symlink()
 
 
 def mark_ready(path: Path, runner: str, deps: DepSet) -> None:
@@ -57,13 +64,13 @@ def mark_ready(path: Path, runner: str, deps: DepSet) -> None:
         "packages": list(deps.packages),
         "created": datetime.now(timezone.utc).isoformat(timespec="seconds"),
     }
-    (path / _META).write_text(json.dumps(meta, indent=2) + "\n")
-    (path / _READY).touch()
+    write_nofollow(_meta(path), json.dumps(meta, indent=2) + "\n")
 
 
 def discard(path: Path) -> None:
-    """Remove a half-installed environment."""
+    """Remove a half-installed environment and its record."""
     shutil.rmtree(path, ignore_errors=True)
+    _meta(path).unlink(missing_ok=True)
 
 
 def list_envs() -> list[dict[str, Any]]:
@@ -72,12 +79,12 @@ def list_envs() -> list[dict[str, Any]]:
     root = envs_root()
     if not root.is_dir():
         return out
-    for path in sorted(root.iterdir()):
+    for path in sorted(p for p in root.iterdir() if p.is_dir() and not p.is_symlink()):
         if not is_ready(path):
             continue
-        meta: dict[str, Any] = json.loads((path / _META).read_text())
+        meta: dict[str, Any] = json.loads(_meta(path).read_text())
         meta["key"] = path.name
-        meta["bytes"] = sum(f.stat().st_size for f in path.rglob("*") if f.is_file())
+        meta["bytes"] = tree_size(path)
         out.append(meta)
     return out
 
