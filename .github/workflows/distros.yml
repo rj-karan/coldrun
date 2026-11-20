@@ -25,6 +25,7 @@ jobs:
           - debian:12
           - ubuntu:22.04
           - rockylinux:9
+          - rockylinux:8  # bubblewrap 0.4: no --clearenv, no --disable-userns
           - opensuse/tumbleweed
           - alpine:latest
     steps:
