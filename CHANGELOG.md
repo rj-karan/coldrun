@@ -7,9 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Fixed
+## [1.1.0] - 2026-11-20
+
+### Added
 
 - Install hints know every major family, not only pacman and apt: the distribution is read from `/etc/os-release` (ID, then ID_LIKE, so Kali, Rocky or Manjaro land in their parent family), and missing tools, `coldrun doctor` fixes and backend errors give that family's command and package names for Arch, Debian, Fedora and RHEL, openSUSE, Alpine, Void, Gentoo and NixOS. `coldrun doctor` names the distribution and warns on NixOS, whose programs live in `/nix/store`, which the sandbox does not mount (#150).
+- A CI job runs the real sandbox on Arch, Fedora, Debian 12, Ubuntu 22.04, Rocky 8 and 9, openSUSE Tumbleweed and Alpine, with each distribution's own Python and bubblewrap (#148).
+
+### Fixed
+
 - The sandbox works beyond merged-`/usr` distributions: `/bin`, `/sbin`, `/lib` and the rest mirror the host (a symlink where merged, a read-only bind where not, as on Alpine), bubblewrap older than 0.5 (RHEL, Rocky and Alma 8 and 9) gets each variable dropped with `--unsetenv` instead of `--clearenv`, and a working test sandbox now beats a suspicious AppArmor sysctl, so Ubuntu systems with a bubblewrap AppArmor profile are no longer refused (#146).
 
 ### Security
@@ -152,7 +158,8 @@ Foundation release (published under the former name `muzzle`): an empty `muzzle 
 - Issue templates (bug, feature, new runner, false positive), pull request template, CODEOWNERS, CONTRIBUTING, SECURITY and CODE_OF_CONDUCT (#4).
 - CLAUDE.md with the repo workflow, branch protection, code quality bar and the hard security rules for agents and contributors (#8).
 
-[Unreleased]: https://github.com/rj-karan/coldrun/compare/v1.0.2...HEAD
+[Unreleased]: https://github.com/rj-karan/coldrun/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/rj-karan/coldrun/compare/v1.0.2...v1.1.0
 [1.0.2]: https://github.com/rj-karan/coldrun/compare/v1.0.1...v1.0.2
 [1.0.1]: https://github.com/rj-karan/coldrun/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/rj-karan/coldrun/compare/v0.4.0...v1.0.0

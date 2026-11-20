@@ -1,6 +1,6 @@
 # Maintainer: KARAN RJ <rjkaran418 at gmail dot com>
 pkgname=coldrun
-pkgver=1.0.2
+pkgver=1.1.0
 pkgrel=1
 pkgdesc="Fetch, vet and sandbox any downloaded script in one command"
 arch=(any)
