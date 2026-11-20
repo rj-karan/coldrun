@@ -29,6 +29,7 @@ from coldrun.report import (
 )
 from coldrun.runners.registry import Registry, default_registry
 from coldrun.runners.shell import package_for
+from coldrun.safefs import copy_nofollow
 from coldrun.sandbox import BwrapBackend, NetPolicy, PodmanBackend, Policy, SandboxError
 from coldrun.vet import engine, guarddog
 from coldrun.vet.scoring import score
@@ -299,33 +300,48 @@ def _install(backend: Backend, policy: Policy, runner: Runner, deps: DepSet) -> 
 def _collect_outputs(scratch: Path, out: Path, script_name: str) -> list[str]:
     """Copy what the script wrote in ``/work`` to ``--out``; return relative names.
 
-    The script itself is bind-mounted read-only into ``/work``, which leaves
-    an empty placeholder with its name in the scratch directory; that and the
-    pipeline's own metadata are not outputs.
+    Only regular files and directories are copied. A symlink is never followed
+    or copied, at any depth: a script could leave ``loot -> ../../../../.ssh``
+    for the host to copy out. Special files are skipped, and nothing is ever
+    written through a symlink already in ``--out``. The script's read-only
+    placeholder and the pipeline's own metadata are not outputs.
     """
 
     def is_output(item: Path) -> bool:
-        if item.name == _SCRATCH_META:
+        if item.name == _SCRATCH_META or item.is_symlink():
             return False
+        if not (item.is_dir() or item.is_file()):
+            return False  # fifos, sockets, devices
         if item.name != script_name:
             return True
         return not ((item.is_file() and item.stat().st_size == 0) or not any(item.iterdir()))
 
-    wrote = [
-        i.name + ("/" if i.is_dir() else "") for i in sorted(scratch.iterdir()) if is_output(i)
-    ]
-    if not wrote:
+    items = [i for i in sorted(scratch.iterdir()) if is_output(i)]
+    links = [i for i in sorted(scratch.iterdir()) if i.is_symlink()]
+    wrote = [i.name + ("/" if i.is_dir() else "") for i in items]
+    wrote += [f"{i.name} (symlink, not copied)" for i in links]
+    if not items:
         return wrote
     out.mkdir(parents=True, exist_ok=True)
-    for item in scratch.iterdir():
-        if not is_output(item):
-            continue
-        target = out / item.name
-        if item.is_dir():
-            shutil.copytree(item, target, dirs_exist_ok=True, symlinks=True)
-        else:
-            shutil.copy2(item, target, follow_symlinks=False)
+    for item in items:
+        _copy_out(item, out / item.name)
     return wrote
+
+
+def _copy_out(src: Path, dst: Path) -> None:
+    """Copy a regular file or a directory tree without following any symlink."""
+    if src.is_symlink():
+        return
+    if src.is_file():
+        copy_nofollow(src, dst)
+        return
+    if not src.is_dir():
+        return
+    if dst.is_symlink() or (dst.exists() and not dst.is_dir()):
+        dst.unlink()
+    dst.mkdir(exist_ok=True)
+    for child in sorted(src.iterdir()):
+        _copy_out(child, dst / child.name)
 
 
 def run(opts: RunOptions, console: Console, services: Services | None = None) -> int:
