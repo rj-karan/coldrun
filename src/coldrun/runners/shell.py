@@ -174,12 +174,39 @@ def commands_in(text: str) -> list[str]:
     return list(seen)
 
 
+#: Package names where a family differs from the Arch name (fedora, suse, void, gentoo,
+#: nixos) or from the Debian name (alpine).
+OVERRIDES: dict[str, dict[str, str]] = {
+    "fedora": {
+        "nc": "nmap-ncat", "dig": "bind-utils", "nslookup": "bind-utils", "host": "bind-utils",
+        "7z": "p7zip-plugins", "go": "golang", "xxd": "vim-common", "ssh": "openssh-clients",
+        "smbclient": "samba-client", "python": "python3", "node": "nodejs",
+    },
+    "suse": {
+        "nc": "netcat-openbsd", "dig": "bind-utils", "nslookup": "bind-utils",
+        "host": "bind-utils", "7z": "7zip", "xxd": "xxd", "ssh": "openssh-clients",
+        "smbclient": "samba-client", "python": "python3", "node": "nodejs",
+    },
+    "alpine": {
+        "nc": "netcat-openbsd", "dig": "bind-tools", "nslookup": "bind-tools",
+        "host": "bind-tools", "7z": "7zip", "go": "go", "ssh": "openssh-client",
+        "crontab": "cronie", "python": "python3",
+    },
+    "void": {"nc": "openbsd-netcat", "python": "python3", "node": "nodejs"},
+    "gentoo": {"nc": "netcat", "python": "python", "node": "nodejs"},
+    "nixos": {"nc": "netcat", "dig": "dnsutils", "python": "python3", "node": "nodejs"},
+}  # fmt: skip
+_ARCH_NAMES = frozenset({"arch", "fedora", "suse", "void", "gentoo", "nixos"})
+
+
 def package_for(command: str, distro: str) -> str | None:
-    """Distro package that provides ``command``, or ``None`` when unknown."""
+    """Package that provides ``command`` on ``distro``'s family, or ``None`` when unknown."""
     pair = PACKAGES.get(command)
     if pair is None:
         return None
-    return pair[0] if distro == "arch" else pair[1]
+    if command in OVERRIDES.get(distro, {}):
+        return OVERRIDES[distro][command]
+    return pair[0] if distro in _ARCH_NAMES else pair[1]
 
 
 class ShellRunner:

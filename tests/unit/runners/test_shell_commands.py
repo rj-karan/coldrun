@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from coldrun import pipeline
+from coldrun import distro, pipeline
 from coldrun.pipeline import DepsError, install_hint
 from coldrun.runners.shell import ShellRunner, commands_in, package_for
 
@@ -38,10 +38,23 @@ def test_resolve_deps_lists_binaries() -> None:
     assert ShellRunner().resolve_deps(FX / "hello.sh").system_binaries == ()
 
 
-def test_package_for_both_distros() -> None:
-    assert package_for("dig", "arch") == "bind"
-    assert package_for("dig", "debian") == "dnsutils"
-    assert package_for("mystery", "arch") is None
+@pytest.mark.parametrize(
+    ("command", "family", "package"),
+    [
+        ("dig", "arch", "bind"),
+        ("dig", "debian", "dnsutils"),
+        ("dig", "fedora", "bind-utils"),
+        ("dig", "alpine", "bind-tools"),
+        ("nc", "suse", "netcat-openbsd"),
+        ("go", "fedora", "golang"),
+        ("go", "debian", "golang-go"),
+        ("curl", "gentoo", "curl"),  # Arch's name where nothing differs
+        ("jq", "alpine", "jq"),  # Debian's name where nothing differs
+        ("mystery", "arch", None),
+    ],
+)
+def test_package_for_each_family(command: str, family: str, package: str | None) -> None:
+    assert package_for(command, family) == package
 
 
 def test_missing_binary_is_exit_102_with_install_hint(
@@ -50,7 +63,7 @@ def test_missing_binary_is_exit_102_with_install_hint(
     script = tmp_path / "s.sh"
     script.write_text("#!/bin/sh\nnmap x\nmystery y\n")
     monkeypatch.setattr(shutil, "which", lambda name: None)
-    monkeypatch.setattr(pipeline, "host_distro", lambda: "arch")
+    monkeypatch.setattr(distro, "family", lambda: "arch")
     with pytest.raises(DepsError) as exc:
         pipeline._resolve(ShellRunner(), script)
     assert "mystery, nmap" in exc.value.what
@@ -58,20 +71,17 @@ def test_missing_binary_is_exit_102_with_install_hint(
     assert exc.value.exit_code == 102
 
 
-def test_install_hint_debian_and_dedup(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(pipeline, "host_distro", lambda: "debian")
-    assert install_hint(["dig", "host"]) == "sudo apt install dnsutils."
-
-
-def test_host_distro_reads_os_release(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    rel = tmp_path / "os-release"
-    monkeypatch.setattr(pipeline, "_OS_RELEASE", rel)
-    rel.write_text('NAME="Omarchy"\nID=omarchy\nID_LIKE=arch\n')
-    assert pipeline.host_distro() == "arch"
-    rel.write_text('ID=kali\nID_LIKE="debian"\n')
-    assert pipeline.host_distro() == "debian"
-
-
-def test_host_distro_without_os_release(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(pipeline, "_OS_RELEASE", tmp_path / "missing")
-    assert pipeline.host_distro() == "debian"
+@pytest.mark.parametrize(
+    ("family", "hint"),
+    [
+        ("debian", "sudo apt install dnsutils."),
+        ("fedora", "sudo dnf install bind-utils."),
+        ("alpine", "sudo apk add bind-tools."),
+        ("unknown", "install dnsutils with your package manager."),
+    ],
+)
+def test_install_hint_per_family_and_dedup(
+    monkeypatch: pytest.MonkeyPatch, family: str, hint: str
+) -> None:
+    monkeypatch.setattr(distro, "family", lambda: family)
+    assert install_hint(["dig", "host"]) == hint

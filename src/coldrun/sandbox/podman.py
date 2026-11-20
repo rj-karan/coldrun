@@ -16,6 +16,7 @@ import tempfile
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from coldrun.distro import install_command
 from coldrun.sandbox import bridge
 from coldrun.sandbox.base import (
     DEPS_DIR,
@@ -36,7 +37,10 @@ PIDS_LIMIT = 1024
 PODMAN_FAILED = 125
 _GUEST_BRIDGE = "/run/coldrun/bridge.py"
 _GUEST_SOCK_DIR = "/run/coldrun/net"
-_INSTALL = "Install it: `sudo pacman -S podman` or `sudo apt install podman`, then run rootless."
+
+
+def _install_hint() -> str:
+    return f"Install it: `{install_command(['podman'])}`, then run it rootless."
 
 
 class PodmanBackend:
@@ -51,7 +55,7 @@ class PodmanBackend:
     def available(self) -> Availability:
         """Podman must be installed; it decides rootless support itself at run time."""
         if self.executable is None:
-            return Availability(False, "podman is not installed.", _INSTALL)
+            return Availability(False, "podman is not installed.", _install_hint())
         return Availability(True)
 
     def command(
@@ -129,7 +133,7 @@ class PodmanBackend:
         try:
             code = subprocess.run(cmd, check=False).returncode  # noqa: S603 - argv built by command()
         except OSError as exc:
-            raise SandboxError(f"could not start podman: {exc}.", _INSTALL) from exc
+            raise SandboxError(f"could not start podman: {exc}.", _install_hint()) from exc
         if code == PODMAN_FAILED:
             # shortcut: a script that itself exits 125 is reported as a podman failure
             raise SandboxError(

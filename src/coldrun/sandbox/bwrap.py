@@ -20,6 +20,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from coldrun.config import cache_dir
+from coldrun.distro import install_command
 from coldrun.safefs import write_nofollow
 from coldrun.sandbox import bridge, seccomp
 from coldrun.sandbox.base import (
@@ -276,7 +277,7 @@ class BwrapBackend:
             return Availability(
                 False,
                 "bubblewrap is not installed.",
-                "Install it: `sudo pacman -S bubblewrap` or `sudo apt install bubblewrap`.",
+                f"Install it: `{install_command(['bubblewrap'])}`.",
             )
         problem = userns_problem()
         # the sysctls only suggest a problem: an AppArmor profile can still let bwrap in

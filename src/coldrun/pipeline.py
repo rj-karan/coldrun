@@ -8,14 +8,13 @@ from __future__ import annotations
 
 import contextlib
 import os
-import re
 import shutil
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from coldrun import cache
+from coldrun import cache, distro
 from coldrun.detect import detect
 from coldrun.fetch import fetch
 from coldrun.report import (
@@ -55,7 +54,6 @@ REGISTRY_HOSTS: dict[str, tuple[str, ...]] = {
     "go": ("proxy.golang.org", "sum.golang.org"),
     "rubygems": ("rubygems.org", "index.rubygems.org"),
 }
-_OS_RELEASE = Path("/etc/os-release")
 
 
 class DepsError(Exception):
@@ -214,23 +212,12 @@ def _resolve(runner: Runner, path: Path) -> DepSet:
     return deps
 
 
-def host_distro() -> str:
-    """``arch`` or ``debian`` from /etc/os-release; debian when unsure."""
-    try:
-        text = _OS_RELEASE.read_text()
-    except OSError:
-        return "debian"
-    ids = " ".join(re.findall(r'^ID(?:_LIKE)?=["\']?([^"\'\n]*)', text, flags=re.MULTILINE))
-    return "arch" if "arch" in ids.split() else "debian"
-
-
 def install_hint(missing: Sequence[str]) -> str:
-    """The package manager command that provides ``missing``."""
-    distro = host_distro()
-    known = [p for p in (package_for(m, distro) for m in missing) if p]
-    unknown = [m for m in missing if package_for(m, distro) is None]
-    tool = "sudo pacman -S" if distro == "arch" else "sudo apt install"
-    parts = [f"{tool} {' '.join(dict.fromkeys(known))}"] if known else []
+    """The package manager command that provides ``missing`` on this distribution."""
+    fam = distro.family()
+    known = [p for p in (package_for(m, fam) for m in missing) if p]
+    unknown = [m for m in missing if package_for(m, fam) is None]
+    parts = [distro.install_command(known, fam)] if known else []
     if unknown:
         parts.append(f"no known package for: {', '.join(unknown)}")
     return "; ".join(parts) + "."
