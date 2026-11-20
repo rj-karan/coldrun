@@ -8,6 +8,7 @@ from typer.testing import CliRunner
 from coldrun import cache
 from coldrun.cli import app
 from coldrun.runners.base import DepSet
+from coldrun.vet.findings import Finding, Severity
 
 
 @pytest.fixture(autouse=True)
@@ -87,3 +88,20 @@ def test_metadata_is_never_written_through_a_symlink(tmp_path: Path) -> None:
     assert not (d.parent / f"{d.name}.json").is_symlink()
     cache.discard(d)
     assert not d.exists() and not (d.parent / f"{d.name}.json").exists()
+
+
+def test_dependency_findings_round_trip() -> None:
+    deps = DepSet("pypi", ("requests",), (), "python3")
+    d = cache.env_dir("python", deps)
+    found = [
+        Finding(
+            "guarddog.hook", Severity.MEDIUM, Path("requests/setup.py"), "install hook", line=3
+        ),
+        Finding("source.ip", Severity.LOW, Path("x"), "hardcoded host", host="10.0.0.1"),
+    ]
+    cache.mark_ready(d, "python", deps, found)
+    assert cache.recorded_findings(d) == found
+    other = cache.env_dir("python", DepSet("pypi", ("rich",)))
+    meta = other.parent / f"{other.name}.json"
+    meta.write_text('{"runner": "python", "packages": ["rich"]}')  # written before 1.1
+    assert cache.recorded_findings(other) == []

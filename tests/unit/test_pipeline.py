@@ -543,3 +543,25 @@ def test_outputs_never_follow_or_copy_symlinks(tmp_path: Path) -> None:
     assert set(wrote) == {
         "notes.txt", "report/", "key.txt (symlink, not copied)", "loot (symlink, not copied)"
     }  # fmt: skip
+
+
+def test_a_cached_environment_replays_its_dependency_findings(script: Path, tmp_path: Path) -> None:
+    runner = VettingRunner(install=["pip", "install", "x"])
+    scans: list[DepSet] = []
+
+    def scan_deps(d: DepSet) -> list[Finding]:
+        scans.append(d)
+        return [Finding("guarddog.hook", Severity.MEDIUM, Path("x"), "install hook")]
+
+    def svc(backend: FakeBackend) -> Services:
+        return Services(registry(runner), {"fake": backend}, scan_deps=scan_deps)
+
+    con, _ = console()
+    first = RunOptions(source=str(script), out=tmp_path / "o", tty=False, yes=True)
+    assert pipeline.run(first, con, svc(FakeBackend(codes=[0, 0]))) == 0  # accepted once
+    # cached now: no rescan, but the same finding is shown and still needs consent
+    con, buf = console()
+    again = RunOptions(source=str(script), out=tmp_path / "o", tty=False)
+    assert pipeline.run(again, con, svc(FakeBackend())) == 100
+    assert len(scans) == 1
+    assert "guarddog.hook" in buf.getvalue() and "(cached)" not in buf.getvalue()
