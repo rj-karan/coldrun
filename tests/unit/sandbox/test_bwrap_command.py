@@ -21,7 +21,9 @@ def _cache(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path / "cache"))
 
 
-def backend(features: frozenset[str] = frozenset({bw.DISABLE_USERNS})) -> BwrapBackend:
+def backend(
+    features: frozenset[str] = frozenset({bw.DISABLE_USERNS, bw.CLEARENV}),
+) -> BwrapBackend:
     return BwrapBackend(
         bwrap=FAKE_BWRAP,
         environ={"TERM": "dumb", "SECRET": "x"},
@@ -72,7 +74,8 @@ def test_root_is_read_only_and_home_is_absent(tmp_path: Path) -> None:
         not src.startswith(str(Path.home())) or src.startswith(str(tmp_path)) for src, _ in ro + rw
     )
     assert not any(dst.startswith("/home") or dst == "/root" for _, dst in ro + rw)
-    assert ("--symlink", "usr/lib64", "/lib64") in zip(cmd, cmd[1:], cmd[2:], strict=False)
+    top = bw._top_level()
+    assert top and " ".join(top) in " ".join(cmd)  # whatever this host's layout is
     guest_tmp = "/tmp"  # noqa: S108 - guest path on a private tmpfs
     assert ("--tmpfs", guest_tmp) in itertools.pairwise(cmd)
     assert ("--tmpfs", "/run") in itertools.pairwise(cmd)
@@ -457,3 +460,34 @@ def test_resource_scope_detection(monkeypatch: pytest.MonkeyPatch, tmp_path: Pat
     monkeypatch.setattr("shutil.which", lambda name: str(tmp_path / "gone"))
     assert bw.resource_scope() == []
     assert BwrapBackend(bwrap=FAKE_BWRAP, scope=None).scope == []  # decided lazily, once
+
+
+def test_top_level_mirrors_merged_and_split_layouts(tmp_path: Path) -> None:
+    (tmp_path / "usr" / "bin").mkdir(parents=True)
+    (tmp_path / "bin").symlink_to("usr/bin")  # merged, like Arch and Fedora
+    (tmp_path / "lib").mkdir()  # a real directory, like Alpine's /lib with musl
+    (tmp_path / "lib64").symlink_to("usr/lib")
+    (tmp_path / "lib32").write_text("not a directory")
+    assert bw._top_level(tmp_path) == [
+        "--symlink", "usr/bin", "/bin",
+        "--ro-bind", str(tmp_path / "lib"), "/lib",
+        "--symlink", "usr/lib", "/lib64",
+    ]  # fmt: skip
+
+
+def test_old_bubblewrap_drops_each_variable_instead_of_clearenv(tmp_path: Path) -> None:
+    cmd = backend(frozenset()).command(mkpolicy(tmp_path), ["true"], tiocsti_blocked=False)
+    assert "--clearenv" not in cmd
+    assert ("--unsetenv", "SECRET") in itertools.pairwise(cmd)
+    assert ("--unsetenv", "TERM") not in itertools.pairwise(cmd)  # allowlisted, set below
+    assert dict(pairs(cmd, "--setenv"))["TERM"] == "dumb"
+
+
+def test_a_working_sandbox_beats_a_suspicious_sysctl(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Ubuntu 24.04: the AppArmor restriction is on, but a profile may still let bwrap in
+    monkeypatch.setattr(bw, "userns_problem", lambda: ("AppArmor blocks it", "lift it"))
+    monkeypatch.setattr(BwrapBackend, "_probe_error", lambda self: None)
+    assert backend().available().ok
+    monkeypatch.setattr(BwrapBackend, "_probe_error", lambda self: "denied")
+    avail = backend().available()
+    assert not avail.ok and avail.reason == "AppArmor blocks it"

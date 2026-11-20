@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- The sandbox works beyond merged-`/usr` distributions: `/bin`, `/sbin`, `/lib` and the rest mirror the host (a symlink where merged, a read-only bind where not, as on Alpine), bubblewrap older than 0.5 (RHEL, Rocky and Alma 8 and 9) gets each variable dropped with `--unsetenv` instead of `--clearenv`, and a working test sandbox now beats a suspicious AppArmor sysctl, so Ubuntu systems with a bubblewrap AppArmor profile are no longer refused (#146).
+
 ### Security
 
 - A cached environment no longer drops its dependency findings: they are recorded next to the environment at install and replayed on every cache hit, so a medium finding accepted once with `--yes` still needs consent on later runs and stays in the report (#144).
