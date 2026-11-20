@@ -172,3 +172,25 @@ def test_archive_runs_with_its_siblings_visible(tmp_path: Path, env: dict[str, s
     assert res.returncode == 0, res.stdout + res.stderr
     assert res.stdout == "from helper\n/work/src/tool/run.sh\n"
     assert not (tmp_path / "coldrun-out").exists()
+
+
+def test_a_symlink_in_work_cannot_copy_home_files_out(tmp_path: Path, env: dict[str, str]) -> None:
+    # the external review's loot attack, end to end: ~/.cache sits under the fake home
+    home = tmp_path / "home"
+    (home / ".ssh").mkdir(parents=True)
+    (home / ".ssh" / "id_test").write_text("PRIVATE KEY")
+    env = dict(env, XDG_CACHE_HOME=str(home / ".cache"))
+    script = tmp_path / "loot.sh"
+    script.write_text(
+        "#!/bin/sh\n"
+        # scratch is home/.cache/coldrun/quarantine/q-*/scratch, five levels below home
+        "ln -s ../../../../../.ssh /work/loot\n"
+        "echo found > /work/real.txt\n"
+    )
+    res = coldrun("run", script.as_posix(), cwd=tmp_path, env=env)
+    assert res.returncode == 0, res.stdout + res.stderr
+    out = tmp_path / "coldrun-out"
+    assert (out / "real.txt").read_text() == "found\n"
+    assert not (out / "loot").exists() and not (out / "loot").is_symlink()
+    assert "PRIVATE KEY" not in "".join(p.read_text() for p in out.rglob("*") if p.is_file())
+    assert "loot (symlink, not copied)" in res.stderr

@@ -67,3 +67,32 @@ jobs:
 
       - name: Sandbox and end-to-end tests
         run: uv run pytest -m "sandbox or e2e" -v
+
+  arm64:
+    # The seccomp filter's aarch64 syscall numbers are only proven on real arm64.
+    name: sandbox on arm64
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          enable-cache: true
+          python-version: "3.12"
+
+      - name: Install bubblewrap
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q --no-install-recommends bubblewrap
+
+      - name: Enable unprivileged user namespaces
+        run: |
+          set -eu
+          if [ "$(sysctl -n kernel.apparmor_restrict_unprivileged_userns 2>/dev/null || echo 0)" = "1" ]; then
+            sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+          fi
+          bwrap --unshare-all --ro-bind /usr /usr --symlink usr/bin /bin --symlink usr/lib /lib --proc /proc --dev /dev -- /bin/true
+
+      - run: uv sync
+
+      - name: Sandbox escape tests on arm64
+        run: uv run pytest -m sandbox -v tests/integration/test_bwrap_backend.py tests/integration/test_bwrap_smoke.py

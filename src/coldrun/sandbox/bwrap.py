@@ -10,6 +10,7 @@ inside.
 
 from __future__ import annotations
 
+import contextlib
 import os
 import shutil
 import socket
@@ -20,7 +21,7 @@ from typing import TYPE_CHECKING
 
 from coldrun.config import cache_dir
 from coldrun.safefs import write_nofollow
-from coldrun.sandbox import bridge
+from coldrun.sandbox import bridge, seccomp
 from coldrun.sandbox.base import (
     DEPS_DIR,
     WORKDIR,
@@ -122,6 +123,22 @@ def _bridge(
     return cmd, env, [_GUEST_PYTHON, _GUEST_BRIDGE, *opts, "--", *argv]
 
 
+DISABLE_USERNS = "--disable-userns"
+
+
+def bwrap_features(executable: str | None) -> frozenset[str]:
+    """Optional flags this bubblewrap supports; ``--disable-userns`` needs 0.8 or newer."""
+    if executable is None:
+        return frozenset()
+    try:
+        out = subprocess.run(  # noqa: S603 - fixed argv
+            [executable, "--help"], capture_output=True, text=True, check=False, timeout=10
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return frozenset()
+    return frozenset(f for f in (DISABLE_USERNS,) if f in out.stdout + out.stderr)
+
+
 def tiocsti_is_blocked() -> bool:
     """True when the kernel refuses TIOCSTI from unprivileged processes.
 
@@ -190,12 +207,21 @@ class BwrapBackend:
         environ: Mapping[str, str] | None = None,
         uid: int | None = None,
         gid: int | None = None,
+        features: frozenset[str] | None = None,
     ) -> None:
         """Create a backend; the arguments exist so tests can pin the host state."""
         self._bwrap = bwrap
         self._environ = environ if environ is not None else os.environ
         self._uid = os.getuid() if uid is None else uid
         self._gid = os.getgid() if gid is None else gid
+        self._features = features
+
+    @property
+    def features(self) -> frozenset[str]:
+        """Optional bubblewrap flags this installation supports, asked once."""
+        if self._features is None:
+            self._features = bwrap_features(self.executable)
+        return self._features
 
     @property
     def executable(self) -> str | None:
@@ -223,6 +249,7 @@ class BwrapBackend:
         tiocsti_blocked: bool | None = None,
         proxy_sock: Path | None = None,
         listen_fds: Mapping[int, int] | None = None,
+        seccomp_fd: int | None = None,
     ) -> list[str]:
         """Translate ``policy`` into a ``bwrap`` argument list.
 
@@ -235,6 +262,7 @@ class BwrapBackend:
                 bridge on ``127.0.0.1`` and the usual proxy variables.
             listen_fds: ``{port: fd}`` of the listening sockets the host opened
                 for ``policy.listen``; the bridge accepts on them inside.
+            seccomp_fd: A file descriptor holding :func:`seccomp.program`.
         """
         if policy.image is not None:
             raise SandboxError(
@@ -243,7 +271,7 @@ class BwrapBackend:
             )
         bwrap = self.executable or "bwrap"
         blocked = tiocsti_is_blocked() if tiocsti_blocked is None else tiocsti_blocked
-        cmd: list[str] = [bwrap, "--unshare-all", "--die-with-parent"]
+        cmd: list[str] = [bwrap, "--unshare-all", "--die-with-parent", *self._hardening(seccomp_fd)]
         if policy.net == NetPolicy.FULL:
             cmd.append("--share-net")
         if not (policy.tty and blocked):
@@ -294,6 +322,15 @@ class BwrapBackend:
         cmd.extend(argv)
         return cmd
 
+    def _hardening(self, seccomp_fd: int | None) -> list[str]:
+        flags: list[str] = []
+        if DISABLE_USERNS in self.features:
+            # no nested user namespaces: they are how most kernel exploits reach root
+            flags += ["--unshare-user", DISABLE_USERNS, "--assert-userns-disabled"]
+        if seccomp_fd is not None:
+            flags += ["--seccomp", str(seccomp_fd)]
+        return flags
+
     def probe(self) -> None:
         """Start an empty sandbox once to surface setup errors before the real run.
 
@@ -323,30 +360,33 @@ class BwrapBackend:
     def run(self, policy: Policy, argv: Sequence[str]) -> int:
         """Probe, then run with stdin, stdout and stderr inherited."""
         self.probe()
-        if policy.net != NetPolicy.ALLOW and not policy.listen:
-            return self._exec(self.command(policy, argv))
-        if not Path(_GUEST_PYTHON).exists():
+        bridged = policy.net == NetPolicy.ALLOW or bool(policy.listen)
+        if bridged and not Path(_GUEST_PYTHON).exists():
             raise SandboxError(
                 f"--allow-host and --listen need {_GUEST_PYTHON} on the host for the bridge.",
                 "Install python3 from your distribution, or use --net full.",
             )
-        with tempfile.TemporaryDirectory(prefix="coldrun-net-") as sock_dir:
+        with contextlib.ExitStack() as stack:
+            filter_fd = seccomp.memfd()
+            stack.callback(os.close, filter_fd)
             proxy = None
             if policy.net == NetPolicy.ALLOW:
+                sock_dir = stack.enter_context(tempfile.TemporaryDirectory(prefix="coldrun-net-"))
                 proxy = AllowProxy(policy.allow_hosts, Path(sock_dir)).start()
+                stack.callback(proxy.stop)
             listeners = [_host_listener(addr, port) for addr, port in policy.listen]
+            for sock in listeners:
+                stack.callback(sock.close)
             ports = [port for _, port in policy.listen]
             fds = {port: sock.fileno() for port, sock in zip(ports, listeners, strict=True)}
-            try:
-                cmd = self.command(
-                    policy, argv, proxy_sock=proxy.path if proxy else None, listen_fds=fds
-                )
-                return self._exec(cmd, pass_fds=tuple(fds.values()))
-            finally:
-                if proxy:
-                    proxy.stop()
-                for sock in listeners:
-                    sock.close()
+            cmd = self.command(
+                policy,
+                argv,
+                proxy_sock=proxy.path if proxy else None,
+                listen_fds=fds,
+                seccomp_fd=filter_fd,
+            )
+            return self._exec(cmd, pass_fds=(*fds.values(), filter_fd))
 
     def _exec(self, cmd: list[str], pass_fds: tuple[int, ...] = ()) -> int:
         try:

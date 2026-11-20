@@ -21,6 +21,8 @@ def probes(tmp_path: Path, **kw: object) -> Probes:
         "python_version": (3, 12),
         "kernel": "7.1.9-arch1-2",
         "cache": tmp_path / "cache",
+        "bwrap_features": lambda path: frozenset({"--disable-userns"}),
+        "machine": "x86_64",
         "semgrep": lambda: "/usr/bin/semgrep",
         "yara_version": lambda: "4.5.4",
     }
@@ -31,7 +33,7 @@ def probes(tmp_path: Path, **kw: object) -> Probes:
 def test_all_green(tmp_path: Path) -> None:
     results = doctor.run_checks(probes(tmp_path))
     assert [r.name for r in results] == [
-        "python", "bubblewrap", "user namespaces", "TIOCSTI", "podman", "uv",
+        "python", "bubblewrap", "user namespaces", "hardening", "TIOCSTI", "podman", "uv",
         "guarddog", "semgrep", "yara", "cache",
     ]  # fmt: skip
     assert all(r.status is Status.PASS for r in results)
@@ -51,6 +53,8 @@ def test_missing_tools_and_broken_userns(tmp_path: Path) -> None:
             python_version=(3, 9),
             semgrep=lambda: None,
             yara_version=lambda: None,
+            bwrap_features=lambda path: frozenset(),
+            machine="riscv64",
         )
     )
     by = {r.name: r for r in results}
@@ -59,6 +63,8 @@ def test_missing_tools_and_broken_userns(tmp_path: Path) -> None:
         by["user namespaces"].status is Status.FAIL and by["user namespaces"].fix == "sysctl it on"
     )
     assert by["TIOCSTI"].status is Status.WARN and "legacy_tiocsti" in by["TIOCSTI"].fix
+    assert by["hardening"].status is Status.WARN
+    assert "0.8 or newer" in by["hardening"].fix and "riscv64" in by["hardening"].detail
     assert by["podman"].status is Status.WARN and "Python 2" in by["podman"].detail
     assert "Node" not in by["podman"].detail  # Node, Go and Ruby use the host toolchain
     assert by["uv"].status is Status.WARN and "astral.sh" in by["uv"].fix

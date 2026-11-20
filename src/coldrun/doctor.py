@@ -20,6 +20,7 @@ from rich.text import Text
 
 from coldrun.config import cache_dir
 from coldrun.sandbox import bwrap as bw
+from coldrun.sandbox import seccomp
 from coldrun.vet import engine
 from coldrun.vet.guarddog import INSTALL_HINT
 
@@ -69,6 +70,8 @@ class Probes:
     version_of: Callable[[list[str]], str | None] = _run_version
     userns_problem: Callable[[], tuple[str, str] | None] = bw.userns_problem
     tiocsti_blocked: Callable[[], bool] = bw.tiocsti_is_blocked
+    bwrap_features: Callable[[str | None], frozenset[str]] = bw.bwrap_features
+    machine: str = platform.machine()
     python_version: tuple[int, int] = sys.version_info[:2]
     kernel: str = platform.release()
     cache: Path | None = None
@@ -96,6 +99,23 @@ def check_userns(p: Probes) -> CheckResult:
     if problem is None:
         return CheckResult("user namespaces", Status.PASS, "unprivileged user namespaces allowed")
     return CheckResult("user namespaces", Status.FAIL, problem[0], problem[1])
+
+
+def check_hardening(p: Probes) -> CheckResult:
+    """Nested user namespaces are blocked and the seccomp filter covers this machine."""
+    gaps: list[str] = []
+    fixes: list[str] = []
+    if bw.DISABLE_USERNS not in p.bwrap_features(p.which("bwrap")):
+        gaps.append("nested user namespaces are not blocked")
+        fixes.append("update bubblewrap to 0.8 or newer")
+    if not seccomp.covers(p.machine):
+        gaps.append(f"no seccomp filter for {p.machine}")
+        fixes.append("x86_64, aarch64 and 32-bit arm and x86 are covered")
+    if gaps:
+        return CheckResult("hardening", Status.WARN, "; ".join(gaps), "; ".join(fixes))
+    return CheckResult(
+        "hardening", Status.PASS, "nested user namespaces blocked; seccomp filter on"
+    )
 
 
 def check_tiocsti(p: Probes) -> CheckResult:
@@ -205,6 +225,7 @@ CHECKS: tuple[Callable[[Probes], CheckResult], ...] = (
     check_python,
     check_bwrap,
     check_userns,
+    check_hardening,
     check_tiocsti,
     check_podman,
     check_uv,
