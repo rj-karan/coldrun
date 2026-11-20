@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+
+- A dependency's install hook could make the host write into any file the user owns, including `~/.bashrc`, and so run commands on the host: coldrun wrote its cache metadata into the environment directory, which the sandbox can write during the install, and followed symlinks there. The metadata now lives next to the environment, out of the sandbox's reach, and host writes never follow a symlink. A marker planted inside an environment no longer marks a failed install as ready. Affects 0.2.0 to 1.0.2 (#134).
+
 ## [1.0.2] - 2026-11-20
 
 Cleaner installs and reports, and a ready-made Arch package on every release.

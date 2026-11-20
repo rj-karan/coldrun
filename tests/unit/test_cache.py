@@ -55,3 +55,35 @@ def test_cli_cache_commands(tmp_path: Path) -> None:
     assert res.exit_code == 0 and "python" in res.output and "requests, rich" in res.output
     res = runner.invoke(app, ["cache", "clean"])
     assert res.exit_code == 0 and "removed 1" in res.output
+
+
+def test_install_hooks_cannot_steer_metadata_writes(tmp_path: Path) -> None:
+    # an install hook runs inside the sandbox with the environment directory writable;
+    # these symlinks are what it could plant there to make the host write elsewhere
+    deps = DepSet("pypi", ('requests; platform_release != "$(touch pwned)"',), (), "python3")
+    d = cache.env_dir("python", deps)
+    victim = tmp_path / "bashrc"
+    victim.write_text("original\n")
+    (d / "meta.json").symlink_to(victim)
+    (d / ".ready").symlink_to(victim)
+    (d / f"{d.name}.json").symlink_to(victim)  # even the new name, should it ever live inside
+    assert not cache.is_ready(d)  # a marker planted inside the environment means nothing
+    cache.mark_ready(d, "python", deps)
+    assert victim.read_text() == "original\n"
+    assert cache.is_ready(d)
+    [env] = cache.list_envs()
+    assert env["packages"] == list(deps.packages)
+    assert env["bytes"] < 1024  # symlinks are not followed when sizing
+
+
+def test_metadata_is_never_written_through_a_symlink(tmp_path: Path) -> None:
+    deps = DepSet("pypi", ("rich",), (), "python3")
+    d = cache.env_dir("python", deps)
+    victim = tmp_path / "profile"
+    victim.write_text("original\n")
+    (d.parent / f"{d.name}.json").symlink_to(victim)
+    cache.mark_ready(d, "python", deps)
+    assert victim.read_text() == "original\n"
+    assert not (d.parent / f"{d.name}.json").is_symlink()
+    cache.discard(d)
+    assert not d.exists() and not (d.parent / f"{d.name}.json").exists()
