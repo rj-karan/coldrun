@@ -8,6 +8,7 @@ from pathlib import Path
 
 import pytest
 
+from coldrun import distro
 from coldrun.sandbox import BwrapBackend, NetPolicy, Policy, SandboxError
 from coldrun.sandbox import bwrap as bw
 from coldrun.sandbox.base import WORKDIR
@@ -243,10 +244,11 @@ def test_userns_problems(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Non
 
 def test_available_reports_missing_binary_and_userns(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(shutil, "which", lambda name: None)
+    monkeypatch.setattr(distro, "family", lambda: "alpine")
     a = BwrapBackend(bwrap=None).available()
     assert not a.ok
     assert "not installed" in a.reason
-    assert "pacman" in a.hint
+    assert "sudo apk add bubblewrap" in a.hint
     monkeypatch.setattr(bw, "userns_problem", lambda: ("broken", "fix it"))
     a = backend().available()
     assert (a.ok, a.reason, a.hint) == (False, "broken", "fix it")
