@@ -12,6 +12,8 @@ import subprocess
 
 import pytest
 
+from coldrun.sandbox.bwrap import _top_level
+
 pytestmark = pytest.mark.sandbox
 
 _MINIMAL_ROOT = [
@@ -21,22 +23,14 @@ _MINIMAL_ROOT = [
     "--ro-bind",
     "/usr",
     "/usr",
-    "--symlink",
-    "usr/bin",
-    "/bin",
-    "--symlink",
-    "usr/lib",
-    "/lib",
-    "--symlink",
-    "usr/lib64",
-    "/lib64",
+    # the host's own /bin and /lib layout: symlinks where /usr is merged, binds where not (Alpine)
+    *_top_level(),
     "--proc",
     "/proc",
     "--dev",
     "/dev",
     "--tmpfs",
     "/tmp",  # noqa: S108 - mount target inside the sandbox, not a host temp file
-    "--clearenv",
     "--setenv",
     "PATH",
     "/usr/bin:/bin",
@@ -52,6 +46,7 @@ def _bwrap() -> str:
 def _run_in_bwrap(script: str) -> subprocess.CompletedProcess[str]:
     return subprocess.run(  # noqa: S603 - fixed argv, no user input
         [_bwrap(), *_MINIMAL_ROOT, "--", "/bin/sh", "-c", script],
+        env={},  # an empty environment, as --clearenv would give; that flag needs bubblewrap 0.5
         capture_output=True,
         text=True,
         check=False,

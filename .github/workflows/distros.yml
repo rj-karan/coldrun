@@ -1,0 +1,41 @@
+name: Distros
+
+# The real sandbox, inside each major distribution family, with that distribution's
+# own python3 and bubblewrap, run by an ordinary user.
+on:
+  pull_request:
+    paths: ["src/coldrun/sandbox/**", "src/coldrun/doctor.py", ".github/scripts/distro-check.sh", ".github/workflows/distros.yml", "pyproject.toml"]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  distro:
+    name: ${{ matrix.image }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        image:
+          - archlinux:latest
+          - fedora:latest
+          - debian:12
+          - ubuntu:22.04
+          - rockylinux:9
+          - rockylinux:8  # bubblewrap 0.4: no --clearenv, no --disable-userns
+          - opensuse/tumbleweed
+          - alpine:latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Let the runner create user namespaces
+        run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0 || true
+
+      - name: coldrun on ${{ matrix.image }}
+        # privileged so the container itself may mount and unshare, as a normal host does
+        run: >
+          docker run --rm --privileged -v "$PWD:/src:ro"
+          "${{ matrix.image }}" sh /src/.github/scripts/distro-check.sh
