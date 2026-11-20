@@ -18,7 +18,9 @@ from typing import TYPE_CHECKING
 from rich.table import Table
 from rich.text import Text
 
+from coldrun import distro
 from coldrun.config import cache_dir
+from coldrun.distro import install_command
 from coldrun.sandbox import bwrap as bw
 from coldrun.sandbox import seccomp
 from coldrun.vet import engine
@@ -72,6 +74,7 @@ class Probes:
     tiocsti_blocked: Callable[[], bool] = bw.tiocsti_is_blocked
     bwrap_features: Callable[[str | None], frozenset[str]] = bw.bwrap_features
     resource_scope: Callable[[], list[str]] = bw.resource_scope
+    distro: Callable[[], tuple[str, str]] = distro.describe
     machine: str = platform.machine()
     python_version: tuple[int, int] = sys.version_info[:2]
     kernel: str = platform.release()
@@ -88,7 +91,7 @@ def check_bwrap(p: Probes) -> CheckResult:
             "bubblewrap",
             Status.FAIL,
             "not installed",
-            "sudo pacman -S bubblewrap  (Arch)  or  sudo apt install bubblewrap  (Debian, Kali)",
+            install_command(["bubblewrap"], p.distro()[0]),
         )
     ver = p.version_of([path, "--version"]) or "version unknown"
     return CheckResult("bubblewrap", Status.PASS, f"{path} ({ver})")
@@ -155,10 +158,34 @@ def check_podman(p: Probes) -> CheckResult:
             "podman",
             Status.WARN,
             "not installed; only needed for Python 2 scripts, which run in a container image",
-            "sudo pacman -S podman  or  sudo apt install podman",
+            install_command(["podman"], p.distro()[0]),
         )
     ver = p.version_of([path, "--version"]) or "version unknown"
     return CheckResult("podman", Status.PASS, f"{path} ({ver})")
+
+
+def _uv_fix(fam: str) -> str:
+    script = "curl -LsSf https://astral.sh/uv/install.sh | sh"
+    if fam in {"arch", "fedora", "suse", "alpine"}:  # the families that package uv
+        return f"{install_command(['uv'], fam)}   or   {script}"
+    return script
+
+
+def check_distribution(p: Probes) -> CheckResult:
+    """Name the distribution; NixOS keeps its programs where the sandbox cannot see them."""
+    fam, name = p.distro()
+    if fam == "nixos":
+        return CheckResult(
+            "distribution",
+            Status.WARN,
+            f"{name}: programs live in /nix/store, which the sandbox does not mount",
+            "run coldrun inside a distrobox or toolbox container of another distribution",
+        )
+    if fam == "unknown":
+        return CheckResult(
+            "distribution", Status.WARN, f"{name}: not recognised, so install hints are generic"
+        )
+    return CheckResult("distribution", Status.PASS, f"{name} ({fam} family)")
 
 
 def check_uv(p: Probes) -> CheckResult:
@@ -168,8 +195,8 @@ def check_uv(p: Probes) -> CheckResult:
         return CheckResult(
             "uv",
             Status.WARN,
-            "not installed; needed by the Python runner (M2)",
-            "curl -LsSf https://astral.sh/uv/install.sh | sh   or   sudo pacman -S uv",
+            "not installed; needed by the Python runner",
+            _uv_fix(p.distro()[0]),
         )
     ver = p.version_of([path, "--version"]) or "version unknown"
     return CheckResult("uv", Status.PASS, f"{path} ({ver})")
@@ -240,6 +267,7 @@ def check_cache(p: Probes) -> CheckResult:
 
 CHECKS: tuple[Callable[[Probes], CheckResult], ...] = (
     check_python,
+    check_distribution,
     check_bwrap,
     check_userns,
     check_hardening,

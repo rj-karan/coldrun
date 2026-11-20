@@ -6,6 +6,7 @@ from pathlib import Path
 
 import pytest
 
+from coldrun import distro
 from coldrun.sandbox import NetPolicy, PodmanBackend, Policy, SandboxError
 from coldrun.sandbox import podman as pm
 
@@ -115,8 +116,9 @@ def test_paths_podman_cannot_express_are_refused(tmp_path: Path) -> None:
 
 def test_available_and_run(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("shutil.which", lambda _: None)
+    monkeypatch.setattr(distro, "family", lambda: "suse")
     missing = PodmanBackend()
-    assert not missing.available().ok and "pacman -S podman" in missing.available().hint
+    assert not missing.available().ok and "sudo zypper install podman" in missing.available().hint
     with pytest.raises(SandboxError, match="not installed"):
         missing.run(policy(tmp_path), ["true"])
 

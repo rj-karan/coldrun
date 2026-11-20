@@ -23,6 +23,7 @@ def probes(tmp_path: Path, **kw: object) -> Probes:
         "cache": tmp_path / "cache",
         "bwrap_features": lambda path: frozenset({"--disable-userns"}),
         "resource_scope": lambda: ["systemd-run", "--user", "--scope", "--"],
+        "distro": lambda: ("arch", "Arch Linux"),
         "machine": "x86_64",
         "semgrep": lambda: "/usr/bin/semgrep",
         "yara_version": lambda: "4.5.4",
@@ -34,12 +35,11 @@ def probes(tmp_path: Path, **kw: object) -> Probes:
 def test_all_green(tmp_path: Path) -> None:
     results = doctor.run_checks(probes(tmp_path))
     assert [r.name for r in results] == [
-        "python", "bubblewrap", "user namespaces", "hardening", "resource limits", "TIOCSTI",
-        "podman", "uv",
-        "guarddog", "semgrep", "yara", "cache",
+        "python", "distribution", "bubblewrap", "user namespaces", "hardening",
+        "resource limits", "TIOCSTI", "podman", "uv", "guarddog", "semgrep", "yara", "cache",
     ]  # fmt: skip
     assert all(r.status is Status.PASS for r in results)
-    assert "bwrap 9.9" in results[1].detail
+    assert "bwrap 9.9" in {r.name: r for r in results}["bubblewrap"].detail
     assert not doctor.has_failures(results)
     assert (tmp_path / "cache").is_dir()
 
@@ -83,7 +83,7 @@ def test_missing_tools_and_broken_userns(tmp_path: Path) -> None:
 
 def test_version_unknown_when_tool_prints_nothing(tmp_path: Path) -> None:
     results = doctor.run_checks(probes(tmp_path, version_of=lambda argv: None))
-    assert "version unknown" in results[1].detail
+    assert "version unknown" in {r.name: r for r in results}["bubblewrap"].detail
 
 
 def test_cache_not_writable(tmp_path: Path) -> None:
@@ -132,3 +132,26 @@ def test_cli_doctor_exit_codes(monkeypatch: pytest.MonkeyPatch) -> None:
     result = CliRunner().invoke(app, ["doctor"])
     assert result.exit_code == 1
     assert "do this" in result.output
+
+
+@pytest.mark.parametrize(
+    ("fam", "status", "words"),
+    [
+        ("fedora", Status.PASS, "fedora family"),
+        ("nixos", Status.WARN, "/nix/store"),
+        ("unknown", Status.WARN, "not recognised"),
+    ],
+)
+def test_distribution_row(tmp_path: Path, fam: str, status: Status, words: str) -> None:
+    by = {r.name: r for r in doctor.run_checks(probes(tmp_path, distro=lambda: (fam, "X Linux")))}
+    assert by["distribution"].status is status and words in by["distribution"].detail
+
+
+def test_install_fixes_follow_the_family(tmp_path: Path) -> None:
+    missing = probes(tmp_path, which=lambda name: None, distro=lambda: ("fedora", "Fedora"))
+    by = {r.name: r for r in doctor.run_checks(missing)}
+    assert by["bubblewrap"].fix == "sudo dnf install bubblewrap"
+    assert by["podman"].fix == "sudo dnf install podman"
+    assert by["uv"].fix.startswith("sudo dnf install uv")
+    deb = probes(tmp_path, which=lambda name: None, distro=lambda: ("debian", "Debian"))
+    assert {r.name: r for r in doctor.run_checks(deb)}["uv"].fix.startswith("curl -LsSf")

@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Install hints know every major family, not only pacman and apt: the distribution is read from `/etc/os-release` (ID, then ID_LIKE, so Kali, Rocky or Manjaro land in their parent family), and missing tools, `coldrun doctor` fixes and backend errors give that family's command and package names for Arch, Debian, Fedora and RHEL, openSUSE, Alpine, Void, Gentoo and NixOS. `coldrun doctor` names the distribution and warns on NixOS, whose programs live in `/nix/store`, which the sandbox does not mount (#150).
 - The sandbox works beyond merged-`/usr` distributions: `/bin`, `/sbin`, `/lib` and the rest mirror the host (a symlink where merged, a read-only bind where not, as on Alpine), bubblewrap older than 0.5 (RHEL, Rocky and Alma 8 and 9) gets each variable dropped with `--unsetenv` instead of `--clearenv`, and a working test sandbox now beats a suspicious AppArmor sysctl, so Ubuntu systems with a bubblewrap AppArmor profile are no longer refused (#146).
 
 ### Security
